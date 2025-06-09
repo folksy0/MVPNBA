@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Data Management - NBA MVP Decision Support System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>Data Management</h3>
+                <p class="text-subtitle text-muted">Manage your NBA player statistics data by season</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Data Management</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-content">
+    {% if season_data %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">Available Data by Season</h4>
+                    <div>
+                        <a href="{{ url_for('upload_page') }}" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload-fill"></i> Upload New Data
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="seasonTable">
+                            <thead>
+                                <tr>
+                                    <th>Season</th>
+                                    <th>Players</th>
+                                    <th>Teams</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for data in season_data %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-md me-3">
+                                                <div class="avatar-content bg-primary text-white">
+                                                    {{ data.season }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ data.season }}-{{ data.season + 1 }} Season</h6>
+                                                <p class="text-muted mb-0">NBA Regular Season</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ data.player_count }} players</span>
+                                    </td>
+                                    <td>
+                                        <div class="team-list">
+                                            {% set team_count = data.teams|length %}
+                                            {% if team_count <= 5 %}
+                                                {% for team in data.teams[:5] %}
+                                                    <span class="badge bg-secondary me-1">{{ team }}</span>
+                                                {% endfor %}
+                                            {% else %}
+                                                {% for team in data.teams[:3] %}
+                                                    <span class="badge bg-secondary me-1">{{ team }}</span>
+                                                {% endfor %}
+                                                <span class="badge bg-light text-dark">+{{ team_count - 3 }} more</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('calculate_mvp', season=data.season) }}" 
+                                               class="btn btn-success btn-sm" 
+                                               title="Calculate MVP Rankings">
+                                                <i class="bi bi-calculator"></i> Calculate MVP
+                                            </a>
+                                            <a href="{{ url_for('mvp_rankings', season=data.season) }}" 
+                                               class="btn btn-primary btn-sm"
+                                               title="View Rankings">
+                                                <i class="bi bi-trophy-fill"></i> Rankings
+                                            </a>
+                                            <a href="{{ url_for('export_rankings', season=data.season) }}" 
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Export to PDF">
+                                                <i class="bi bi-file-earmark-pdf-fill"></i> Export
+                                            </a>
+                                            <button class="btn btn-danger btn-sm" 
+                                                    onclick="confirmDelete('{{ data.season }}')"
+                                                    title="Delete Season Data">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Season Filter -->
+    <div class="row">
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Quick Filters</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="seasonFilter">Filter by Season:</label>
+                        <select class="form-select" id="seasonFilter" onchange="filterBySeason()">
+                            <option value="">All Seasons</option>
+                            {% for season in seasons %}
+                            <option value="{{ season }}">{{ season }}-{{ season + 1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group mt-3">
+                        <label for="playerCountFilter">Minimum Players:</label>
+                        <input type="range" class="form-range" id="playerCountFilter" 
+                               min="1" max="100" value="1" oninput="filterByPlayerCount(this.value)">
+                        <small class="text-muted">Players: <span id="playerCountValue">1</span>+</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Data Statistics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ season_data|length }}</h4>
+                                <p class="text-muted mb-0">Total Seasons</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ season_data|sum(attribute='player_count') }}</h4>
+                                <p class="text-muted mb-0">Total Players</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="calculateAllMVP()">
+                            <i class="bi bi-calculator"></i> Calculate All MVP Rankings
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="exportAllData()">
+                            <i class="bi bi-download"></i> Export All Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- No Data State -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-database-x display-1 text-muted"></i>
+                    <h3 class="mt-3">No Data Available</h3>
+                    <p class="text-muted">You haven't uploaded any NBA player statistics yet.</p>
+                    <p class="text-muted">Upload your first CSV file to start analyzing MVP candidates.</p>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('upload_page') }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-cloud-upload-fill"></i> Upload Your First Dataset
+                        </a>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5>What you can do once data is uploaded:</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="feature-box">
+                                    <i class="bi bi-calculator text-primary display-6"></i>
+                                    <h6 class="mt-2">Calculate MVP Rankings</h6>
+                                    <p class="text-muted small">Advanced algorithm with weighted criteria</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="feature-box">
+                                    <i class="bi bi-people-fill text-success display-6"></i>
+                                    <h6 class="mt-2">Compare Players</h6>
+                                    <p class="text-muted small">Side-by-side player comparisons</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="feature-box">
+                                    <i class="bi bi-graph-up text-info display-6"></i>
+                                    <h6 class="mt-2">View Analytics</h6>
+                                    <p class="text-muted small">Statistical insights and trends</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete all data for season <strong id="deleteSeasonText"></strong>?</p>
+                <p class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Season</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.avatar-content {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.team-list {
+    max-width: 200px;
+}
+
+.team-list .badge {
+    font-size: 0.7em;
+    margin-bottom: 2px;
+}
+
+.feature-box {
+    text-align: center;
+    padding: 20px 10px;
+}
+
+.btn-group .btn {
+    font-size: 0.8em;
+    padding: 0.25rem 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(season) {
+    document.getElementById('deleteSeasonText').textContent = season;
+    document.getElementById('deleteForm').action = `/delete_season/${season}`;
+    
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+
+function filterBySeason() {
+    const filter = document.getElementById('seasonFilter').value;
+    const table = document.getElementById('seasonTable');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const seasonCell = rows[i].getElementsByTagName('td')[0];
+        if (seasonCell) {
+            const seasonText = seasonCell.textContent || seasonCell.innerText;
+            if (filter === '' || seasonText.includes(filter)) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+    }
+}
+
+function filterByPlayerCount(minPlayers) {
+    document.getElementById('playerCountValue').textContent = minPlayers;
+    
+    const table = document.getElementById('seasonTable');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const playerCell = rows[i].getElementsByTagName('td')[1];
+        if (playerCell) {
+            const playerCount = parseInt(playerCell.textContent.match(/\d+/)[0]);
+            if (playerCount >= parseInt(minPlayers)) {
+                rows[i].style.display = '';
+            } else {
+                rows[i].style.display = 'none';
+            }
+        }
+    }
+}
+
+function calculateAllMVP() {
+    if (confirm('This will calculate MVP rankings for all seasons. This may take a while. Continue?')) {
+        const seasonsList = {{ (season_data | map(attribute='season') | list | tojson) if season_data else '[]' }};
+        let completed = 0;
+        
+        function calculateNext() {
+            if (completed < seasonsList.length) {
+                const season = seasonsList[completed];
+                fetch(`/calculate_mvp/${season}`)
+                    .then(response => {
+                        completed++;
+                        if (completed < seasonsList.length) {
+                            calculateNext();
+                        } else {
+                            alert('All MVP rankings have been calculated!');
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error calculating MVP for season', season, error);
+                        completed++;
+                        calculateNext();
+                    });
+            }
+        }
+        
+        calculateNext();
+    }
+}
+
+function exportAllData() {
+    alert('Export functionality will be implemented in the next update.');
+}
+
+// Initialize DataTable if available
+document.addEventListener('DOMContentLoaded', function() {
+    // Add row hover effects
+    const rows = document.querySelectorAll('#seasonTable tbody tr');
+    rows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8f9fa';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}MVP Rankings {{ season }} - NBA MVP Decision Support System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>MVP Rankings - Season {{ season }}</h3>
+                <p class="text-subtitle text-muted">Top NBA MVP candidates based on weighted criteria analysis</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('data_management') }}">Data Management</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">MVP Rankings {{ season }}</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="page-content">
+    {% if top_players %}
+    <!-- Top 3 MVP Candidates -->
+    <div class="row mb-4">
+        {% for i in range(3) %}
+            {% if top_players[i] %}
+            {% set player = top_players[i] %}
+            <div class="col-12 col-md-4">
+                <div class="card mvp-card rank-{{ i + 1 }}">
+                    <div class="card-body text-center">
+                        <div class="mvp-rank-badge">
+                            {% if i == 0 %}
+                                <i class="bi bi-trophy-fill text-warning"></i>
+                            {% elif i == 1 %}
+                                <i class="bi bi-award-fill text-secondary"></i>
+                            {% else %}
+                                <i class="bi bi-award text-warning"></i>
+                            {% endif %}
+                            <span class="rank-number">#{{ i + 1 }}</span>
+                        </div>
+                        
+                        <div class="player-avatar mb-3">
+                            <div class="avatar avatar-xl">
+                                <div class="avatar-content bg-primary text-white">
+                                    {{ player[0][:2].upper() }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h4 class="player-name">{{ player[0] }}</h4>
+                        <p class="team-name text-muted">{{ player[1] }}</p>
+                        
+                        <div class="mvp-score">
+                            <h2 class="score-value">{{ "%.4f"|format(player[7]) }}</h2>
+                            <p class="score-label">MVP Score</p>
+                        </div>
+                        
+                        <div class="player-stats mt-3">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <strong>{{ player[2] }}</strong>
+                                    <small class="d-block text-muted">PPG</small>
+                                </div>
+                                <div class="col-4">
+                                    <strong>{{ player[3] }}</strong>
+                                    <small class="d-block text-muted">RPG</small>
+                                </div>
+                                <div class="col-4">
+                                    <strong>{{ player[4] }}</strong>
+                                    <small class="d-block text-muted">APG</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    
+    <!-- Complete Rankings Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">Complete MVP Rankings</h4>
+                    <div>
+                        <a href="{{ url_for('export_rankings', season=season) }}" class="btn btn-outline-primary">
+                            <i class="bi bi-file-earmark-pdf-fill"></i> Export PDF
+                        </a>
+                        <a href="{{ url_for('calculate_mvp', season=season) }}" class="btn btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> Recalculate
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="mvpTable">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Team</th>
+                                    <th>Points</th>
+                                    <th>Rebounds</th>
+                                    <th>Assists</th>
+                                    <th>Steals</th>
+                                    <th>Blocks</th>
+                                    <th>MVP Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in top_players %}
+                                <tr class="{% if loop.index <= 3 %}table-warning{% endif %}">
+                                    <td>
+                                        <div class="rank-cell">
+                                            {% if loop.index == 1 %}
+                                                <i class="bi bi-trophy-fill text-warning me-2"></i>
+                                            {% elif loop.index == 2 %}
+                                                <i class="bi bi-award-fill text-secondary me-2"></i>
+                                            {% elif loop.index == 3 %}
+                                                <i class="bi bi-award text-warning me-2"></i>
+                                            {% endif %}
+                                            <strong>#{{ loop.index }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-sm me-3">
+                                                <div class="avatar-content bg-primary text-white">
+                                                    {{ player[0][:2].upper() }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ player[0] }}</h6>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ player[1] }}</span>
+                                    </td>
+                                    <td><strong>{{ player[2] }}</strong></td>
+                                    <td><strong>{{ player[3] }}</strong></td>
+                                    <td><strong>{{ player[4] }}</strong></td>
+                                    <td><strong>{{ player[5] }}</strong></td>
+                                    <td><strong>{{ player[6] }}</strong></td>
+                                    <td>
+                                        <div class="mvp-score-cell">
+                                            <strong class="text-primary">{{ "%.4f"|format(player[7]) }}</strong>
+                                            <div class="score-bar">
+                                                <div class="score-fill" data-width="{{ (player[7] / top_players[0][7] * 100)|round }}"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Criteria Weights Information -->
+    <div class="row">
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">MVP Criteria Weights</h4>
+                </div>
+                <div class="card-body">
+                    <div class="criteria-list">
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Team Performance</span>
+                                <strong>50%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-primary" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Turnovers (Cost)</span>
+                                <strong>25%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-warning" style="width: 25%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Points</span>
+                                <strong>15%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-success" style="width: 15%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Rebounds</span>
+                                <strong>15%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-info" style="width: 15%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Assists</span>
+                                <strong>15%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-secondary" style="width: 15%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="criteria-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Steals</span>
+                                <strong>15%</strong>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-dark" style="width: 15%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Season {{ season }} Statistics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="stat-summary">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="stat-item text-center">
+                                    <h3 class="text-primary">{{ top_players|length }}</h3>
+                                    <p class="text-muted mb-0">Total Candidates</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-item text-center">
+                                    <h3 class="text-success">{{ "%.4f"|format(top_players[0][7]) if top_players else '0' }}</h3>
+                                    <p class="text-muted mb-0">Highest Score</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="stat-item text-center">
+                                    <h3 class="text-warning">{{ top_players[0][2] if top_players else '0' }}</h3>
+                                    <p class="text-muted mb-0">Top PPG</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-item text-center">
+                                    <h3 class="text-info">{{ top_players[0][3] if top_players else '0' }}</h3>
+                                    <p class="text-muted mb-0">Top RPG</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="text-center">
+                            <h5>MVP Winner</h5>
+                            {% if top_players %}
+                            <div class="winner-display">
+                                <div class="avatar avatar-lg mx-auto mb-2">
+                                    <div class="avatar-content bg-warning text-dark">
+                                        {{ top_players[0][0][:2].upper() }}
+                                    </div>
+                                </div>
+                                <h4 class="text-warning">{{ top_players[0][0] }}</h4>
+                                <p class="text-muted">{{ top_players[0][1] }}</p>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- No Rankings Available -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-calculator display-1 text-muted"></i>
+                    <h3 class="mt-3">No MVP Rankings Available</h3>
+                    <p class="text-muted">MVP rankings haven't been calculated for season {{ season }} yet.</p>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('calculate_mvp', season=season) }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-calculator"></i> Calculate MVP Rankings
+                        </a>
+                        <a href="{{ url_for('data_management') }}" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-arrow-left"></i> Back to Data Management
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.mvp-card {
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.mvp-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.mvp-card.rank-1 {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+}
+
+.mvp-card.rank-2 {
+    border-color: #c0c0c0;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.mvp-card.rank-3 {
+    border-color: #cd7f32;
+    background: linear-gradient(135deg, #fff5e6 0%, #ffffff 100%);
+}
+
+.mvp-rank-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 1.5em;
+}
+
+.rank-number {
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.player-avatar .avatar-content {
+    width: 80px;
+    height: 80px;
+    font-size: 24px;
+}
+
+.player-name {
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+
+.team-name {
+    font-size: 1.1em;
+    margin-bottom: 20px;
+}
+
+.mvp-score {
+    background: rgba(0,123,255,0.1);
+    border-radius: 10px;
+    padding: 15px;
+    margin: 20px 0;
+}
+
+.score-value {
+    font-weight: 800;
+    color: #007bff;
+    margin-bottom: 5px;
+}
+
+.score-label {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-bottom: 0;
+}
+
+.player-stats {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.rank-cell {
+    display: flex;
+    align-items: center;
+    font-size: 1.1em;
+}
+
+.mvp-score-cell {
+    position: relative;
+}
+
+.score-bar {
+    width: 100%;
+    height: 4px;
+    background: #e9ecef;
+    border-radius: 2px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    transition: width 0.3s ease;
+}
+
+.criteria-item {
+    margin-bottom: 15px;
+}
+
+.criteria-item .progress {
+    height: 8px;
+}
+
+.stat-item h3 {
+    font-weight: 700;
+}
+
+.winner-display .avatar-content {
+    width: 60px;
+    height: 60px;
+    font-size: 20px;
+    border: 3px solid #ffd700;
+}
+
+@media (max-width: 768px) {
+    .mvp-card {
+        margin-bottom: 20px;
+    }
+    
+    .player-avatar .avatar-content {
+        width: 60px;
+        height: 60px;
+        font-size: 18px;
+    }
+    
+    .mvp-rank-badge {
+        position: static;
+        margin-bottom: 10px;
+    }
+}
+
+#mvpTable tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate score bars
+    const scoreFills = document.querySelectorAll('.score-fill');
+    scoreFills.forEach(fill => {
+        const targetWidth = fill.getAttribute('data-width') + '%';
+        fill.style.width = '0%';
+        setTimeout(() => {
+            fill.style.width = targetWidth;
+        }, 500);
+    });
+    
+    // Add click handlers for table rows
+    const tableRows = document.querySelectorAll('#mvpTable tbody tr');
+    tableRows.forEach(row => {
+        row.addEventListener('click', function() {
+            const playerName = this.querySelector('h6').textContent;
+            alert(`Player details for ${playerName} will be available in the next update.`);
+        });
+        
+        row.style.cursor = 'pointer';
+    });
+    
+    // Tooltip for criteria weights
+    const criteriaItems = document.querySelectorAll('.criteria-item');
+    criteriaItems.forEach(item => {
+        item.title = 'Click for detailed explanation of this criteria';
+        item.style.cursor = 'help';
+    });
+});
+
+// Print functionality
+function printRankings() {
+    window.print();
+}
+
+// Share functionality
+function shareRankings() {
+    if (navigator.share) {
+        navigator.share({
+            title: `NBA MVP Rankings {{ season }}`,
+            text: `Check out the MVP rankings for NBA season {{ season }}`,
+            url: window.location.href
+        });
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(window.location.href);
+        alert('Rankings URL copied to clipboard!');
+    }
+}
+</script>
+{% endblock %}

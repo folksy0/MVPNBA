@@ -1,0 +1,621 @@
+{% extends "base.html" %}
+
+{% block title %}Player Comparison - NBA MVP Decision Support System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>Player Comparison</h3>
+                <p class="text-subtitle text-muted">Compare NBA players side by side across multiple seasons</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Player Comparison</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-content">
+    <div class="row">
+        <div class="col-12 col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Select Players to Compare</h4>
+                </div>
+                <div class="card-body">
+                    {% if players %}
+                    <div class="form-group">
+                        <label for="seasonFilter">Filter by Season:</label>
+                        <select class="form-select" id="seasonFilter" onchange="filterPlayersBySeason()">
+                            <option value="">All Seasons</option>
+                            {% set seasons = players | map(attribute=3) | list | unique | sort(reverse=True) %}
+                            {% for season in seasons %}
+                            <option value="{{ season }}">{{ season }}-{{ season + 1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="playerSearch">Search Players:</label>
+                        <input type="text" class="form-control" id="playerSearch" 
+                               placeholder="Type player name..." onkeyup="searchPlayers()">
+                    </div>
+                    
+                    <div class="player-selection">
+                        <h6>Available Players:</h6>
+                        <div id="playerList" class="player-list">
+                            {% for player in players %}
+                            <div class="player-item" data-season="{{ player[3] }}" data-name="{{ player[1].lower() }}">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           value="{{ player[0] }}" id="player_{{ player[0] }}"
+                                           onchange="updateComparison()">
+                                    <label class="form-check-label" for="player_{{ player[0] }}">
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-sm me-2">
+                                                <div class="avatar-content bg-primary text-white">
+                                                    {{ player[1][:2].upper() }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <strong>{{ player[1] }}</strong>
+                                                <small class="d-block text-muted">{{ player[2] }} - {{ player[3] }}</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary" onclick="compareSelected()" id="compareBtn" disabled>
+                            <i class="bi bi-bar-chart-fill"></i> Compare Selected Players
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearSelection()">
+                            <i class="bi bi-x-circle"></i> Clear Selection
+                        </button>
+                    </div>
+                    
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-person-x display-4 text-muted"></i>
+                        <h5 class="mt-3">No Players Available</h5>
+                        <p class="text-muted">Upload player data first to enable comparisons</p>
+                        <a href="{{ url_for('upload_page') }}" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload-fill"></i> Upload Data
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-8">
+            <div id="comparisonResults" style="display: none;">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="card-title">Player Comparison Results</h4>
+                        <div>
+                            <button class="btn btn-outline-primary" onclick="exportComparison()">
+                                <i class="bi bi-download"></i> Export
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="printComparison()">
+                                <i class="bi bi-printer"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="comparisonContent">
+                            <!-- Comparison results will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Default state -->
+            <div id="defaultState" class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                    <h3 class="mt-3">Select Players to Compare</h3>
+                    <p class="text-muted">Choose 2 or more players from the left panel to see detailed comparisons</p>
+                    
+                    <div class="mt-4">
+                        <h5>Comparison Features:</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="feature-box">
+                                    <i class="bi bi-bar-chart text-primary display-6"></i>
+                                    <h6 class="mt-2">Statistical Comparison</h6>
+                                    <p class="text-muted small">Side-by-side stats analysis</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="feature-box">
+                                    <i class="bi bi-graph-up text-success display-6"></i>
+                                    <h6 class="mt-2">Performance Charts</h6>
+                                    <p class="text-muted small">Visual performance comparisons</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparison Chart Modal -->
+<div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chartModalLabel">Performance Chart</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="comparisonChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.player-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.player-item {
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.player-item:hover {
+    background-color: #f8f9fa;
+}
+
+.player-item .form-check {
+    margin-bottom: 0;
+}
+
+.player-item .form-check-label {
+    width: 100%;
+    cursor: pointer;
+}
+
+.avatar-content {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.feature-box {
+    text-align: center;
+    padding: 20px 10px;
+}
+
+.comparison-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.comparison-player-header {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.stat-comparison-row {
+    border-bottom: 1px solid #e9ecef;
+    padding: 10px 0;
+}
+
+.stat-comparison-row:last-child {
+    border-bottom: none;
+}
+
+.stat-value {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.stat-winner {
+    background-color: #d4edda;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+.comparison-chart-container {
+    position: relative;
+    height: 300px;
+    margin: 20px 0;
+}
+
+@media (max-width: 768px) {
+    .player-list {
+        max-height: 300px;
+    }
+    
+    .comparison-results {
+        overflow-x: auto;
+    }
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0,0,0,.3);
+    border-radius: 50%;
+    border-top-color: #007bff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js for visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let selectedPlayers = [];
+let comparisonData = null;
+
+function filterPlayersBySeason() {
+    const season = document.getElementById('seasonFilter').value;
+    const playerItems = document.querySelectorAll('.player-item');
+    
+    playerItems.forEach(item => {
+        if (!season || item.dataset.season === season) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function searchPlayers() {
+    const searchTerm = document.getElementById('playerSearch').value.toLowerCase();
+    const playerItems = document.querySelectorAll('.player-item');
+    
+    playerItems.forEach(item => {
+        const playerName = item.dataset.name;
+        if (playerName.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function updateComparison() {
+    const checkboxes = document.querySelectorAll('.player-list input[type="checkbox"]:checked');
+    selectedPlayers = Array.from(checkboxes).map(cb => cb.value);
+    
+    const compareBtn = document.getElementById('compareBtn');
+    if (selectedPlayers.length >= 2) {
+        compareBtn.disabled = false;
+        compareBtn.innerHTML = `<i class="bi bi-bar-chart-fill"></i> Compare ${selectedPlayers.length} Players`;
+    } else {
+        compareBtn.disabled = true;
+        compareBtn.innerHTML = '<i class="bi bi-bar-chart-fill"></i> Compare Selected Players';
+    }
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.player-list input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    selectedPlayers = [];
+    updateComparison();
+    
+    document.getElementById('comparisonResults').style.display = 'none';
+    document.getElementById('defaultState').style.display = 'block';
+}
+
+async function compareSelected() {
+    if (selectedPlayers.length < 2) {
+        alert('Please select at least 2 players to compare');
+        return;
+    }
+    
+    const compareBtn = document.getElementById('compareBtn');
+    const originalText = compareBtn.innerHTML;
+    compareBtn.innerHTML = '<span class="loading-spinner"></span> Loading...';
+    compareBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/compare_players', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_ids: selectedPlayers.map(id => parseInt(id))
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            comparisonData = data.players;
+            displayComparison(data.players);
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while comparing players');
+    } finally {
+        compareBtn.innerHTML = originalText;
+        compareBtn.disabled = false;
+    }
+}
+
+function displayComparison(players) {
+    document.getElementById('defaultState').style.display = 'none';
+    document.getElementById('comparisonResults').style.display = 'block';
+    
+    const content = document.getElementById('comparisonContent');
+    
+    // Create comparison table
+    let html = `
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5>Player Overview</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Team</th>
+                                <th>Season</th>
+                                <th>Games</th>
+                                <th>Minutes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    players.forEach(player => {
+        html += `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-sm me-2">
+                            <div class="avatar-content bg-primary text-white">
+                                ${player.name.substring(0, 2).toUpperCase()}
+                            </div>
+                        </div>
+                        <strong>${player.name}</strong>
+                    </div>
+                </td>
+                <td><span class="badge bg-secondary">${player.team}</span></td>
+                <td>${player.season}</td>
+                <td>${player.games}</td>
+                <td>${player.minutes}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <h5>Statistical Comparison</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Statistic</th>
+    `;
+    
+    players.forEach(player => {
+        html += `<th class="text-center">${player.name}</th>`;
+    });
+    
+    html += `
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    // Statistical rows
+    const stats = [
+        {key: 'points', label: 'Points per Game', higher: true},
+        {key: 'rebounds', label: 'Rebounds per Game', higher: true},
+        {key: 'assists', label: 'Assists per Game', higher: true},
+        {key: 'steals', label: 'Steals per Game', higher: true},
+        {key: 'blocks', label: 'Blocks per Game', higher: true},
+        {key: 'fg_percent', label: 'Field Goal %', higher: true}
+    ];
+    
+    stats.forEach(stat => {
+        html += `<tr><td><strong>${stat.label}</strong></td>`;
+        
+        // Find best value for highlighting
+        const values = players.map(p => parseFloat(p[stat.key]) || 0);
+        const bestValue = stat.higher ? Math.max(...values) : Math.min(...values);
+        
+        players.forEach(player => {
+            const value = parseFloat(player[stat.key]) || 0;
+            const isBest = value === bestValue;
+            const cellClass = isBest ? 'stat-winner' : '';
+            
+            html += `<td class="text-center ${cellClass}">
+                        <span class="stat-value">${value}</span>
+                     </td>`;
+        });
+        
+        html += '</tr>';
+    });
+    
+    html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-center">
+                    <button class="btn btn-primary" onclick="showComparisonChart()">
+                        <i class="bi bi-bar-chart-fill"></i> View Performance Chart
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+function showComparisonChart() {
+    if (!comparisonData) return;
+    
+    const modal = new bootstrap.Modal(document.getElementById('chartModal'));
+    modal.show();
+    
+    // Prepare chart data
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    
+    const datasets = comparisonData.map((player, index) => ({
+        label: player.name,
+        data: [
+            player.points,
+            player.rebounds,
+            player.assists,
+            player.steals,
+            player.blocks
+        ],
+        backgroundColor: `rgba(${index * 100 + 50}, ${index * 80 + 100}, ${index * 60 + 150}, 0.2)`,
+        borderColor: `rgba(${index * 100 + 50}, ${index * 80 + 100}, ${index * 60 + 150}, 1)`,
+        borderWidth: 2
+    }));
+    
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: ['Points', 'Rebounds', 'Assists', 'Steals', 'Blocks'],
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                title: {
+                    display: true,
+                    text: 'Player Performance Comparison'
+                }
+            }
+        }
+    });
+}
+
+function exportComparison() {
+    if (!comparisonData) {
+        alert('No comparison data to export');
+        return;
+    }
+    
+    // Create CSV content
+    let csvContent = "Player,Team,Season,Games,Minutes,Points,Rebounds,Assists,Steals,Blocks,FG%\n";
+    
+    comparisonData.forEach(player => {
+        csvContent += `"${player.name}","${player.team}",${player.season},${player.games},${player.minutes},${player.points},${player.rebounds},${player.assists},${player.steals},${player.blocks},${player.fg_percent}\n`;
+    });
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'player_comparison.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+function printComparison() {
+    if (!comparisonData) {
+        alert('No comparison data to print');
+        return;
+    }
+    
+    const printWindow = window.open('', '_blank');
+    const comparisonContent = document.getElementById('comparisonContent').innerHTML;
+    
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Player Comparison Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .stat-winner { background-color: #d4edda; }
+                    .badge { background-color: #6c757d; color: white; padding: 2px 6px; border-radius: 3px; }
+                </style>
+            </head>
+            <body>
+                <h1>NBA Player Comparison Report</h1>
+                <p>Generated on: ${new Date().toLocaleDateString()}</p>
+                ${comparisonContent}
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial state
+    updateComparison();
+});
+</script>
+{% endblock %}

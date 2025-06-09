@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - NBA MVP Decision Support System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>Upload NBA Data</h3>
+                <p class="text-subtitle text-muted">Upload CSV files containing NBA player statistics</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Upload Data</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-content">
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">CSV File Upload</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('upload_csv') }}" method="post" enctype="multipart/form-data" id="uploadForm">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select CSV File</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                            <div class="form-text">Select a CSV file containing NBA player statistics data.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="alert alert-info">
+                                <h6 class="alert-heading">File Requirements:</h6>
+                                <ul class="mb-0">
+                                    <li>File format: CSV (.csv)</li>
+                                    <li>Maximum file size: 16MB</li>
+                                    <li>Required columns: Player Name, Team, Games, Minutes, FG%, Points, Rebounds, Assists, Steals, Blocks, Turnovers, Personal Fouls, Season Year</li>
+                                    <li>Data should be from basketball-reference.com format</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                                <i class="bi bi-cloud-upload-fill"></i> Upload File
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Progress Bar -->
+                    <div id="uploadProgress" class="mt-3" style="display: none;">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <p class="mt-2 mb-0" id="progressText">Uploading...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Drag and Drop Area -->
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Drag & Drop Upload</h4>
+                </div>
+                <div class="card-body">
+                    <div id="dropZone" class="drop-zone">
+                        <div class="text-center">
+                            <i class="bi bi-cloud-upload display-1 text-muted"></i>
+                            <h5 class="mt-3">Drag and drop your CSV file here</h5>
+                            <p class="text-muted">or click to browse files</p>
+                            <input type="file" id="dropZoneFile" accept=".csv" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar with instructions -->
+        <div class="col-12 col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">CSV Format Guide</h4>
+                </div>
+                <div class="card-body">
+                    <h6>Required Columns:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Column</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Player Name</td><td>Text</td></tr>
+                                <tr><td>Team</td><td>Text</td></tr>
+                                <tr><td>Games</td><td>Number</td></tr>
+                                <tr><td>Minutes</td><td>Number</td></tr>
+                                <tr><td>FG%</td><td>Decimal</td></tr>
+                                <tr><td>Points</td><td>Number</td></tr>
+                                <tr><td>Rebounds</td><td>Number</td></tr>
+                                <tr><td>Assists</td><td>Number</td></tr>
+                                <tr><td>Steals</td><td>Number</td></tr>
+                                <tr><td>Blocks</td><td>Number</td></tr>
+                                <tr><td>Turnovers</td><td>Number</td></tr>
+                                <tr><td>Personal Fouls</td><td>Number</td></tr>
+                                <tr><td>Season Year</td><td>Number</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Sample Data</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Example CSV format:</p>
+                    <pre class="bg-light p-3 rounded"><code>Player Name,Team,Games,Minutes,FG%,Points,Rebounds,Assists,Steals,Blocks,Turnovers,Personal Fouls,Season Year
+LeBron James,LAL,72,35.2,0.525,25.3,7.4,7.1,1.6,0.6,3.9,1.5,2023
+Stephen Curry,GSW,64,32.7,0.427,29.5,6.1,6.3,0.9,0.8,3.2,2.0,2023</code></pre>
+                    
+                    <div class="mt-3">
+                        <a href="#" class="btn btn-outline-primary btn-sm" id="downloadSample">
+                            <i class="bi bi-download"></i> Download Sample CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.drop-zone {
+    border: 2px dashed #ddd;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.drop-zone:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.drop-zone.dragover {
+    border-color: #007bff;
+    background-color: #e3f2fd;
+}
+
+.drop-zone.error {
+    border-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.drop-zone.success {
+    border-color: #28a745;
+    background-color: #d4edda;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const dropZoneFile = document.getElementById('dropZoneFile');
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('file');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = uploadProgress.querySelector('.progress-bar');
+    const progressText = document.getElementById('progressText');
+    
+    // Drag and drop functionality
+    dropZone.addEventListener('click', () => dropZoneFile.click());
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+    dropZone.addEventListener('drop', handleDrop);
+    
+    dropZoneFile.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            fileInput.files = this.files;
+            showFileSelected(this.files[0]);
+        }
+    });
+    
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            showFileSelected(this.files[0]);
+        }
+    });
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    }
+    
+    function handleDragLeave(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                fileInput.files = files;
+                showFileSelected(file);
+            } else {
+                showError('Please select a valid CSV file');
+            }
+        }
+    }
+    
+    function showFileSelected(file) {
+        dropZone.classList.add('success');
+        dropZone.innerHTML = `
+            <div class="text-center">
+                <i class="bi bi-file-earmark-check display-1 text-success"></i>
+                <h5 class="mt-3 text-success">File Selected</h5>
+                <p class="text-muted">${file.name} (${formatFileSize(file.size)})</p>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetDropZone()">Change File</button>
+            </div>
+        `;
+    }
+    
+    function showError(message) {
+        dropZone.classList.add('error');
+        setTimeout(() => {
+            dropZone.classList.remove('error');
+        }, 3000);
+        alert(message);
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    window.resetDropZone = function() {
+        dropZone.classList.remove('success', 'error');
+        dropZone.innerHTML = `
+            <div class="text-center">
+                <i class="bi bi-cloud-upload display-1 text-muted"></i>
+                <h5 class="mt-3">Drag and drop your CSV file here</h5>
+                <p class="text-muted">or click to browse files</p>
+            </div>
+        `;
+        fileInput.value = '';
+        dropZoneFile.value = '';
+    };
+    
+    // Form submission with progress
+    uploadForm.addEventListener('submit', function(e) {
+        if (fileInput.files.length === 0) {
+            e.preventDefault();
+            alert('Please select a file to upload');
+            return;
+        }
+        
+        // Show progress bar
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="spinner-border spinner-border-sm"></i> Uploading...';
+        uploadProgress.style.display = 'block';
+        
+        // Simulate progress (since we can't track actual upload progress easily)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            
+            progressBar.style.width = progress + '%';
+            progressText.textContent = `Uploading... ${Math.round(progress)}%`;
+        }, 200);
+        
+        // Clear interval after 10 seconds (fallback)
+        setTimeout(() => {
+            clearInterval(interval);
+        }, 10000);
+    });
+    
+    // Download sample CSV
+    document.getElementById('downloadSample').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const sampleData = `Player Name,Team,Games,Minutes,FG%,Points,Rebounds,Assists,Steals,Blocks,Turnovers,Personal Fouls,Season Year
+LeBron James,LAL,72,35.2,0.525,25.3,7.4,7.1,1.6,0.6,3.9,1.5,2023
+Stephen Curry,GSW,64,32.7,0.427,29.5,6.1,6.3,0.9,0.8,3.2,2.0,2023
+Giannis Antetokounmpo,MIL,63,32.1,0.553,31.1,11.8,5.7,0.8,0.8,3.4,3.1,2023
+Luka Doncic,DAL,66,36.2,0.454,32.4,8.6,8.0,1.4,0.5,4.5,2.4,2023
+Jayson Tatum,BOS,74,36.9,0.466,30.1,8.8,4.6,1.1,0.7,2.9,2.3,2023`;
+        
+        const blob = new Blob([sampleData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'nba_sample_data.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    });
+});
+</script>
+{% endblock %}
