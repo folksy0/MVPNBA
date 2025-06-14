@@ -1,6 +1,8 @@
 """
 NBA MVP Decision Support System
 Flask Application with Mazar Template Integration
+Modified to use COPRAS method for MVP calculation with strict CSV column input
+including the 'Team' column.
 """
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
@@ -29,24 +31,24 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('static/charts', exist_ok=True)
 
-# Weight Criteria untuk MVP
-MVP_WEIGHTS = {
+# Weight Criteria for MVP - ADAPTED TO COPRAS EXAMPLE SNIPPET
+COPRA_MVP_WEIGHTS = {
     "C1": 0.08,  # Total Games
-    "C2": 0.08,  # Minutes Played  
+    "C2": 0.08,  # Minutes Played
     "C3": 0.09,  # FG% (Field Goal Percentage)
     "C4": 0.15,  # PTS (Points)
     "C5": 0.15,  # TRB (Total Rebounds)
     "C6": 0.15,  # AST (Assists)
     "C7": 0.15,  # STL (Steals)
-    "C8": 0.10,  # BLK (Blocks)
-    "C9": 0.5,   # TEAM (Team Performance Factor)
-    "C10": 0.25, # TOV (Turnovers - benefit criteria)
-    "C11": 0.10  # PF (Personal Fouls - benefit criteria)
+    "C8": 0.15,  # BLK (Blocks)
+    "C9": 0.50,  # TEAM (Team Performance Factor)
+    "C10": 0.25, # TOV (Turnovers - cost criteria in COPRAS example)
+    "C11": 0.25  # PF (Personal Fouls - cost criteria in COPRAS example)
 }
 
-# Benefit and Cost criteria
-BENEFIT_CRITERIA = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9']
-COST_CRITERIA = ['C10', 'C11']
+# Benefit and Cost criteria - ADAPTED TO COPRAS EXAMPLE SNIPPET
+COPRA_BENEFIT_CRITERIA = [f"C{i}" for i in range(1, 10)] # C1 to C9 are benefits
+COPRA_COST_CRITERIA = ["C10", "C11"] # C10, C11 are costs
 
 def init_database():
     """Initialize SQLite database with required tables"""
@@ -54,6 +56,9 @@ def init_database():
     cursor = conn.cursor()
     
     # Players table
+    # 'name' column will store the value from CSV 'A' column
+    # 'team' will store the value from CSV 'Team' column
+    # 'season' will be a default value or user input, not from CSV
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS players (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,33 +70,35 @@ def init_database():
     ''')
     
     # Statistics table
+    # Columns map directly to C1-C11 from CSV conceptually
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS statistics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER,
-            games INTEGER,
-            minutes REAL,
-            fg_percent REAL,
-            points REAL,
-            rebounds REAL,
-            assists REAL,
-            steals REAL,
-            blocks REAL,
-            turnovers REAL,
-            personal_fouls REAL,
-            team_performance REAL DEFAULT 50.0,
+            games REAL,            -- Maps to C1
+            minutes REAL,          -- Maps to C2
+            fg_percent REAL,       -- Maps to C3
+            points REAL,           -- Maps to C4
+            rebounds REAL,         -- Maps to C5
+            assists REAL,          -- Maps to C6
+            steals REAL,           -- Maps to C7
+            blocks REAL,           -- Maps to C8
+            team_performance REAL, -- Maps to C9 (team ranking from preprocessing)
+            turnovers REAL,        -- Maps to C10
+            personal_fouls REAL,   -- Maps to C11
             FOREIGN KEY (player_id) REFERENCES players (id)
         )
     ''')
     
     # MVP Scores table
+    # 'final_score' will store the calculated Qi value
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS mvp_scores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER,
             season INTEGER,
-            normalized_score REAL,
-            final_score REAL,
+            normalized_score REAL, -- Placeholder, Qi is in final_score
+            final_score REAL,      -- Stores the COPRAS Qi value
             rank_position INTEGER,
             calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (player_id) REFERENCES players (id)
@@ -114,179 +121,190 @@ def init_database():
     conn.close()
 
 class MVPCalculator:
-    """MVP Decision Support System Calculator"""
+    """MVP Decision Support System Calculator using COPRAS method"""
     
-    def __init__(self, weights=MVP_WEIGHTS):
+    def __init__(self, weights=COPRA_MVP_WEIGHTS, benefit_criteria=COPRA_BENEFIT_CRITERIA, cost_criteria=COPRA_COST_CRITERIA):
         self.weights = weights
-        self.benefit_criteria = BENEFIT_CRITERIA
-        self.cost_criteria = COST_CRITERIA
-    
-    def normalize_data(self, df):
-        """Normalize data using min-max normalization"""
-        normalized_df = df.copy()
-        criteria_columns = ['games', 'minutes', 'fg_percent', 'points', 'rebounds', 
-                          'assists', 'steals', 'blocks', 'team_performance', 
-                          'turnovers', 'personal_fouls']
-        
-        for i, col in enumerate(criteria_columns, 1):
-            criterion = f'C{i}'
-            if col in df.columns:
-                min_val = df[col].min()
-                max_val = df[col].max()
-                
-                if max_val != min_val:
-                    if criterion in self.benefit_criteria:
-                        # For benefit criteria: higher is better
-                        normalized_df[f'{col}_norm'] = (df[col] - min_val) / (max_val - min_val)
-                    else:
-                        # For cost criteria: lower is better
-                        normalized_df[f'{col}_norm'] = (max_val - df[col]) / (max_val - min_val)
-                else:
-                    normalized_df[f'{col}_norm'] = 0.5
-        
-        return normalized_df
+        self.benefit_criteria = benefit_criteria
+        self.cost_criteria = cost_criteria
     
     def calculate_mvp_scores(self, df):
-        """Calculate final MVP scores using weighted criteria"""
-        normalized_df = self.normalize_data(df)
+
+   
+        copras_df = df[['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11']].copy()
+        for col in copras_df.columns:
+            copras_df[col] = pd.to_numeric(copras_df[col], errors='coerce').fillna(0)
+
+        all_criteria = self.benefit_criteria + self.cost_criteria
+
+        normalized_df = copras_df.copy()
+        for col_name_c in all_criteria: 
+            col_total = copras_df[col_name_c].sum()
+            normalized_df[f"normalized_{col_name_c}"] = copras_df[col_name_c] / col_total if col_total != 0 else 0
         
-        # Calculate weighted scores
-        normalized_df['final_score'] = 0
-        criteria_mapping = {
-            'C1': 'games_norm',
-            'C2': 'minutes_norm', 
-            'C3': 'fg_percent_norm',
-            'C4': 'points_norm',
-            'C5': 'rebounds_norm',
-            'C6': 'assists_norm',
-            'C7': 'steals_norm',
-            'C8': 'blocks_norm',
-            'C9': 'team_performance_norm',
-            'C10': 'turnovers_norm',
-            'C11': 'personal_fouls_norm'
-        }
+        weighted_df = normalized_df.copy()
+        for col_name_c in all_criteria: 
+    
+            weighted_df[f"weighted_{col_name_c}"] = weighted_df[f"normalized_{col_name_c}"] * self.weights[col_name_c]
+
+       
+        weighted_cols_for_filter = [f"weighted_{c}" for c in all_criteria]
         
-        for criterion, weight in self.weights.items():
-            if criterion in criteria_mapping:
-                col_name = criteria_mapping[criterion]
-                if col_name in normalized_df.columns:
-                    normalized_df['final_score'] += normalized_df[col_name] * weight
+        # Apply the filter directly to the main DataFrame `df` to keep 'A' and 'Team' aligned
+        # Also ensure to handle cases where weighted_cols_for_filter might be empty
+        if weighted_cols_for_filter:
+            # Check for columns that actually exist in weighted_df
+            actual_weighted_cols_for_filter = [col for col in weighted_cols_for_filter if col in weighted_df.columns]
+            
+            # Create a boolean mask from weighted_df for filtering
+            # Use .loc to ensure original index alignment for merging back
+            mask = (weighted_df[actual_weighted_cols_for_filter] >= 0.000001).all(axis=1)
+            
+            # Apply the mask to the original df and the weighted_df to keep them synchronized
+            df = df.loc[mask].copy() # Filter original df
+            weighted_df = weighted_df.loc[mask].copy() # Filter weighted df
+            
+            # If after filtering, df becomes empty, return an empty DataFrame or handle appropriately
+            if df.empty:
+                return pd.DataFrame(columns=df.columns.tolist() + ['final_score', 'rank_position'])
+
+
+        # --- COPRAS Step 3: Calculate Si+ and Si- ---
+        # Sum of weighted benefit criteria
+        weighted_benefit_cols = [f"weighted_{c}" for c in self.benefit_criteria]
+        actual_weighted_benefit_cols = [col for col in weighted_benefit_cols if col in weighted_df.columns]
+        weighted_df["Si+"] = weighted_df[actual_weighted_benefit_cols].sum(axis=1)
         
-        # Rank players
-        normalized_df = normalized_df.sort_values('final_score', ascending=False)
-        normalized_df['rank_position'] = range(1, len(normalized_df) + 1)
+        # Sum of weighted cost criteria
+        weighted_cost_cols = [f"weighted_{c}" for c in self.cost_criteria]
+        actual_weighted_cost_cols = [col for col in weighted_cost_cols if col in weighted_df.columns]
+        weighted_df["Si-"] = weighted_df[actual_weighted_cost_cols].sum(axis=1)
+
+        # Rounding Si+ and Si- as in the example snippet
+        weighted_df["Si+"] = weighted_df["Si+"].round(5)
+        weighted_df["Si-"] = weighted_df["Si-"].round(5)
+
+        # --- COPRAS Step 4: Calculate Qi ---
+        s_min = weighted_df["Si-"].min() # Minimum Si- across all alternatives
         
-        return normalized_df
+        # Avoid division by zero by replacing 0 in Si- with a very small number (epsilon)
+        weighted_df["Si-"] = weighted_df["Si-"].replace(0, np.finfo(float).eps) 
+
+        weighted_df["Qi"] = weighted_df["Si+"] + ((s_min * weighted_df["Si+"]) / weighted_df["Si-"])
+
+        # --- COPRAS Step 5: Rank Players ---
+        # Merge Qi back to the original DataFrame and rank
+        # Use .set_index(df.index) to ensure proper alignment after filtering
+        results_df = df.copy() 
+        results_df['final_score'] = weighted_df['Qi'].values # Assign Qi values directly by array to filtered df
+        
+        # Rank in descending order of Qi (higher Qi is better)
+        results_df = results_df.sort_values('final_score', ascending=False)
+        # 'method="min"' ensures tied ranks get the same minimum rank number
+        results_df['rank_position'] = results_df['final_score'].rank(ascending=False, method="min").astype(int) 
+        
+        # Reset index and drop the old index as in run_copras_model if that's desired for final output consistency
+        results_df = results_df.reset_index(drop=True)
+        
+        return results_df
+
 
 def validate_csv_format(file_path):
-    """Validate CSV format and required columns with flexible column mapping"""
+    """
+    Validate CSV format to strictly require columns 'A', 'Team', 'C1' through 'C11'
+    and nothing else.
+    """
     try:
-        # Try reading with different encoding options and parameters
         df = None
+        # Attempt to read CSV with various common encodings
         encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1', 'utf-8-sig']
         
         for encoding in encodings:
             try:
-                # Try different CSV parsing parameters to handle malformed files
+                # Try comma separator
                 df = pd.read_csv(
                     file_path, 
                     encoding=encoding,
                     sep=',',
-                    quoting=1,  # QUOTE_ALL
+                    quoting=1,  # Quote all fields
                     skipinitialspace=True,
                     skip_blank_lines=True,
-                    on_bad_lines='skip',  # Skip problematic lines
-                    engine='python'  # More robust parser
+                    on_bad_lines='skip',  # Skip lines that cause parsing errors
+                    engine='python'  # Robust parsing engine
                 )
-                break
+                break # Break if successful
             except (UnicodeDecodeError, pd.errors.ParserError):
                 try:
-                    # Try with different separator
+                    # Try semicolon separator if comma fails
                     df = pd.read_csv(
                         file_path, 
                         encoding=encoding,
-                        sep=';',  # Try semicolon separator
+                        sep=';',
                         quoting=1,
                         skipinitialspace=True,
                         skip_blank_lines=True,
                         on_bad_lines='skip',
                         engine='python'
                     )
-                    break
+                    break # Break if successful
                 except:
-                    continue
+                    continue # Continue to next encoding if both separators fail
         
         if df is None or df.empty:
-            return False, "Unable to read CSV file with any supported encoding or format"
+            return False, "Unable to read CSV file with any supported encoding or format, or file is empty."
         
-        # Clean column names (remove extra spaces, etc.)
+        # Clean column names (remove leading/trailing spaces)
         df.columns = df.columns.str.strip()
         
-        # Define flexible column mapping - support multiple formats
-        column_mappings = {
-            # Standard format (from sample)
-            'player': ['Player', 'Player Name', 'Name'],
-            'team': ['Team', 'Team Name'],
-            'games': ['G', 'Games', 'GP', 'Games Played'],
-            'minutes': ['MP', 'Minutes', 'MIN', 'Minutes Played'],
-            'fg_percent': ['FG%', 'FG Percent', 'Field Goal %', 'Field Goal Percentage'],
-            'points': ['PTS', 'Points', 'PPG', 'Points Per Game'],
-            'rebounds': ['TRB', 'Rebounds', 'REB', 'RPG', 'Rebounds Per Game'],
-            'assists': ['AST', 'Assists', 'APG', 'Assists Per Game'],
-            'steals': ['STL', 'Steals', 'SPG', 'Steals Per Game'],
-            'blocks': ['BLK', 'Blocks', 'BPG', 'Blocks Per Game'],
-            'turnovers': ['TOV', 'Turnovers', 'TO', 'Turnovers Per Game'],
-            'personal_fouls': ['PF', 'Personal Fouls', 'Fouls', 'PF Per Game']
-        }
+        # Define the strictly required columns in the exact order for validation
+        required_columns = ['A', 'Team', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11']
         
-        # Find actual column names in the CSV
-        actual_columns = {}
-        missing_fields = []
+        # Check if all required columns are present
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return False, f"Missing required columns: {', '.join(missing_columns)}. Your CSV must contain all of: {', '.join(required_columns)}."
         
-        for field, possible_names in column_mappings.items():
-            found = False
-            for name in possible_names:
-                if name in df.columns:
-                    actual_columns[field] = name
-                    found = True
-                    break
-            if not found:
-                missing_fields.append(field)
-        
-        if missing_fields:
-            return False, f"Missing required fields: {', '.join(missing_fields)}. Available columns: {', '.join(df.columns)}"
-        
-        # Validate numeric columns
-        numeric_fields = ['games', 'minutes', 'fg_percent', 'points', 'rebounds', 
-                         'assists', 'steals', 'blocks', 'turnovers', 'personal_fouls']
-        
-        for field in numeric_fields:
-            col_name = actual_columns[field]
-            # Convert to numeric, replacing any non-numeric values with NaN
-            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+        # Check for any extra columns not in the required list
+        extra_columns = [col for col in df.columns if col not in required_columns]
+        if extra_columns:
+            return False, f"Extra unsupported columns found: {', '.join(extra_columns)}. Your CSV must contain *only* the columns: {', '.join(required_columns)}."
+
+        # Validate numeric columns ('C1' through 'C11')
+        numeric_cols_to_validate = [f'C{i}' for i in range(1, 12)]
+        for col in numeric_cols_to_validate:
+            # Convert to numeric, coercing any non-numeric values to NaN
+            df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # Check if we have any valid numeric data
-            if df[col_name].isna().all():
-                return False, f"Column '{col_name}' contains no valid numeric data"
+            # Check if the column is entirely non-numeric after coercion (all NaNs)
+            # and is not an empty series (which would also be all NaNs)
+            if df[col].isnull().all() and not df[col].empty:
+                return False, f"Column '{col}' contains no valid numeric data or is entirely empty after conversion. All values are NaN."
         
-        # Check for minimum number of rows
+        # Check for minimum number of rows with valid data (excluding header)
         if len(df) < 1:
-            return False, "CSV file is empty or contains no valid data rows"
+            return False, "CSV file is empty or contains no valid data rows after processing."
         
-        return True, f"CSV format is valid. Found {len(df)} player records with columns: {', '.join(df.columns)}"
+        return True, f"CSV format is valid. Found {len(df)} records with expected columns."
     
     except Exception as e:
-        return False, f"Error reading CSV: {str(e)}"
+        # Catch any unexpected errors during file reading or validation
+        return False, f"An unexpected error occurred during CSV validation: {str(e)}"
+
 
 def process_csv_data(file_path, session_id):
-    """Process CSV data and store in database"""
+    """
+    Process CSV data with strict column requirements ('A', 'Team', 'C1'-'C11')
+    and store in the database.
+    'A' column maps to player name, 'Team' to team name, 'C1' to 'C11' map to specific statistics.
+    """
     try:
-        # Use same robust CSV reading as validation
         df = None
+        # Attempt to read CSV with various common encodings
         encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1', 'utf-8-sig']
         
         for encoding in encodings:
             try:
+                # Try comma separator
                 df = pd.read_csv(
                     file_path, 
                     encoding=encoding,
@@ -300,6 +318,7 @@ def process_csv_data(file_path, session_id):
                 break
             except (UnicodeDecodeError, pd.errors.ParserError):
                 try:
+                    # Try semicolon separator
                     df = pd.read_csv(
                         file_path, 
                         encoding=encoding,
@@ -315,9 +334,9 @@ def process_csv_data(file_path, session_id):
                     continue
         
         if df is None or df.empty:
-            raise Exception("Unable to read CSV file")
+            raise Exception("Unable to read CSV file, or file is empty.")
         
-        # Clean column names
+        # Clean column names (remove leading/trailing spaces)
         df.columns = df.columns.str.strip()
         
         conn = sqlite3.connect('nba_mvp.db')
@@ -326,71 +345,66 @@ def process_csv_data(file_path, session_id):
         total_records = len(df)
         processed_records = 0
         
-        # Update session
+        # Update upload session status to 'processing' and set total records
         cursor.execute('''
             UPDATE upload_sessions 
             SET total_records = ?, status = 'processing' 
             WHERE id = ?
         ''', (total_records, session_id))        
-        # Define flexible column mapping - same as validation
-        column_mappings = {
-            'player': ['Player', 'Player Name', 'Name'],
-            'team': ['Team', 'Team Name'],
-            'games': ['G', 'Games', 'GP', 'Games Played'],
-            'minutes': ['MP', 'Minutes', 'MIN', 'Minutes Played'],
-            'fg_percent': ['FG%', 'FG Percent', 'Field Goal %', 'Field Goal Percentage'],
-            'points': ['PTS', 'Points', 'PPG', 'Points Per Game'],
-            'rebounds': ['TRB', 'Rebounds', 'REB', 'RPG', 'Rebounds Per Game'],
-            'assists': ['AST', 'Assists', 'APG', 'Assists Per Game'],
-            'steals': ['STL', 'Steals', 'SPG', 'Steals Per Game'],
-            'blocks': ['BLK', 'Blocks', 'BPG', 'Blocks Per Game'],
-            'turnovers': ['TOV', 'Turnovers', 'TO', 'Turnovers Per Game'],
-            'personal_fouls': ['PF', 'Personal Fouls', 'Fouls', 'PF Per Game']
+        
+        # Define strict mapping from CSV 'C' columns to database column names
+        csv_to_db_col_map = {
+            'C1': 'games',
+            'C2': 'minutes',
+            'C3': 'fg_percent',
+            'C4': 'points',
+            'C5': 'rebounds',
+            'C6': 'assists',
+            'C7': 'steals',
+            'C8': 'blocks',
+            'C9': 'team_performance', # C9 is now the 'ranking' from your preprocessing
+            'C10': 'turnovers',
+            'C11': 'personal_fouls'
         }
         
-        # Find actual column names in the CSV
-        actual_columns = {}
-        for field, possible_names in column_mappings.items():
-            for name in possible_names:
-                if name in df.columns:
-                    actual_columns[field] = name
-                    break
+        # Default values for attributes not present in the strict CSV format
+        season = 2024 # Default season (can be user-defined in a form)
         
-        # Default season if not provided
-        season = 2024
-        if 'Season' in df.columns:
-            season = df['Season'].iloc[0] if not df['Season'].isna().all() else 2024
-        elif 'Season Year' in df.columns:
-            season = df['Season Year'].iloc[0] if not df['Season Year'].isna().all() else 2024
-        
-        for _, row in df.iterrows():
+        for index, row in df.iterrows():
             try:
-                # Get values using flexible column mapping
-                player_name = row[actual_columns.get('player', df.columns[0])]  # Use first column if no match
-                team_name = row[actual_columns.get('team', 'Unknown')] if 'team' in actual_columns else 'Unknown'
+                player_name = str(row['A']).strip() # Get player name from 'A' column
+                team_name = str(row['Team']).strip() # Get team name from 'Team' column
                 
-                # Insert player
+                if not player_name: # Basic check for empty player name
+                    print(f"Skipping row {index+1}: Player name (column 'A') is empty.")
+                    continue
+                if not team_name: # Basic check for empty team name
+                    print(f"Skipping row {index+1}: Team name (column 'Team') is empty for player {player_name}.")
+                    team_name = "Unknown Team" # Fallback if team is empty
+
+                # Insert player into 'players' table
                 cursor.execute('''
                     INSERT INTO players (name, team, season) 
                     VALUES (?, ?, ?)
-                ''', (str(player_name), str(team_name), int(season)))
+                ''', (player_name, team_name, int(season)))
                 
-                player_id = cursor.lastrowid
+                player_id = cursor.lastrowid # Get the ID of the newly inserted player
                 
-                # Get numeric values with safe conversion
-                def safe_float(value, default=0.0):
+                # Helper for safe numeric conversion: converts value from CSV to float,
+                # returns default_val if it's NaN or conversion fails.
+                def safe_numeric_from_csv(value, default_val=0.0):
                     try:
-                        return float(value) if pd.notna(value) else default
-                    except:
-                        return default
+                        return float(value) if pd.notna(value) else default_val
+                    except (ValueError, TypeError):
+                        return default_val
+
+                # Prepare statistics values from CSV 'C' columns for insertion
+                stats_for_db = {
+                    db_col: safe_numeric_from_csv(row[csv_col]) 
+                    for csv_col, db_col in csv_to_db_col_map.items()
+                }
                 
-                def safe_int(value, default=0):
-                    try:
-                        return int(value) if pd.notna(value) else default
-                    except:
-                        return default
-                
-                # Insert statistics with safe conversion
+                # Insert statistics into 'statistics' table
                 cursor.execute('''
                     INSERT INTO statistics 
                     (player_id, games, minutes, fg_percent, points, rebounds, 
@@ -398,22 +412,22 @@ def process_csv_data(file_path, session_id):
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     player_id,
-                    safe_int(row[actual_columns.get('games', df.columns[1])] if 'games' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('minutes', df.columns[2])] if 'minutes' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('fg_percent', df.columns[3])] if 'fg_percent' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('points', df.columns[4])] if 'points' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('rebounds', df.columns[5])] if 'rebounds' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('assists', df.columns[6])] if 'assists' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('steals', df.columns[7])] if 'steals' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('blocks', df.columns[8])] if 'blocks' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('turnovers', df.columns[9])] if 'turnovers' in actual_columns else 0),
-                    safe_float(row[actual_columns.get('personal_fouls', df.columns[10])] if 'personal_fouls' in actual_columns else 0),
-                    50.0  # Default team performance
+                    stats_for_db['games'],
+                    stats_for_db['minutes'],
+                    stats_for_db['fg_percent'],
+                    stats_for_db['points'],
+                    stats_for_db['rebounds'],
+                    stats_for_db['assists'],
+                    stats_for_db['steals'],
+                    stats_for_db['blocks'],
+                    stats_for_db['turnovers'],
+                    stats_for_db['personal_fouls'],
+                    stats_for_db['team_performance'] # C9 from CSV
                 ))
                 
                 processed_records += 1
                 
-                # Update progress
+                # Update progress in upload session (can be done less frequently for performance)
                 cursor.execute('''
                     UPDATE upload_sessions 
                     SET processed_records = ? 
@@ -421,10 +435,13 @@ def process_csv_data(file_path, session_id):
                 ''', (processed_records, session_id))
                 
             except Exception as e:
-                print(f"Error processing row: {e}")
-                continue
+                # Log specific row processing errors
+                player_identifier = row['A'] if 'A' in row else f"row {index+1}"
+                print(f"Error processing data for player/row {player_identifier}: {e}")
+                # Consider adding more detailed error logging or storing problematic rows
+                continue # Continue to the next row even if one fails
         
-        # Mark as completed
+        # Mark upload session as 'completed'
         cursor.execute('''
             UPDATE upload_sessions 
             SET status = 'completed' 
@@ -434,23 +451,28 @@ def process_csv_data(file_path, session_id):
         conn.commit()
         conn.close()
         
-        return True, f"Successfully processed {processed_records} records"
+        return True, f"Successfully processed {processed_records} records."
     
     except Exception as e:
-        return False, f"Error processing data: {str(e)}"
+        # Catch any high-level errors during data processing
+        if 'conn' in locals() and conn: # Ensure connection exists before trying to rollback
+            conn.rollback() # Rollback any partial changes
+            conn.close()
+        return False, f"An error occurred during data processing: {str(e)}"
+
 
 @app.route('/')
 def index():
-    """Dashboard page"""
+    """Dashboard page: Displays overall statistics and recent uploads."""
     conn = sqlite3.connect('nba_mvp.db')
     cursor = conn.cursor()
     
-    # Get statistics
+    # Get overall statistics about the stored data
     cursor.execute('''
         SELECT COUNT(DISTINCT season) as total_seasons,
-               COUNT(*) as total_players,
+               COUNT(DISTINCT p.id) as total_players, -- Count distinct player IDs
                MAX(season) as latest_season
-        FROM players
+        FROM players p
     ''')
     
     stats = cursor.fetchone()
@@ -460,7 +482,7 @@ def index():
         'latest_season': stats[2] if stats[2] else 'No data'
     }
     
-    # Get recent uploads
+    # Get recent upload session details
     cursor.execute('''
         SELECT filename, total_records, status, created_at
         FROM upload_sessions
@@ -477,45 +499,54 @@ def index():
 
 @app.route('/upload')
 def upload_page():
-    """Upload CSV page"""
+    """Renders the CSV file upload page."""
     return render_template('upload.html')
 
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
-    """Handle CSV file upload"""
+    """Handles the POST request for CSV file upload."""
     if 'file' not in request.files:
-        flash('No file selected', 'error')
+        flash('No file part in the request.', 'error')
         return redirect(url_for('upload_page'))
     
     file = request.files['file']
     if file.filename == '':
-        flash('No file selected', 'error')
+        flash('No file selected for upload.', 'error')
         return redirect(url_for('upload_page'))
     
-    if file and file.filename.endswith('.csv'):
-        filename = secure_filename(file.filename)
+    # Check if the file has a .csv extension
+    if file and file.filename.lower().endswith('.csv'):
+        filename = secure_filename(file.filename) # Sanitize filename
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
+        file.save(file_path) # Save the uploaded file temporarily
         
-        # Validate CSV format
+        # Validate the format of the uploaded CSV file
         is_valid, message = validate_csv_format(file_path)
         if not is_valid:
-            os.remove(file_path)
+            os.remove(file_path) # Remove invalid file
             flash(f'Invalid CSV format: {message}', 'error')
             return redirect(url_for('upload_page'))
         
-        # Create upload session
+        # Create a unique session ID for tracking the upload process
         session_id = str(uuid.uuid4())
         conn = sqlite3.connect('nba_mvp.db')
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO upload_sessions (id, filename, status) 
-            VALUES (?, ?, 'pending')
-        ''', (session_id, filename))
-        conn.commit()
-        conn.close()
+        try:
+            # Record the new upload session as 'pending'
+            cursor.execute('''
+                INSERT INTO upload_sessions (id, filename, status) 
+                VALUES (?, ?, 'pending')
+            ''', (session_id, filename))
+            conn.commit()
+        except sqlite3.Error as e:
+            flash(f"Database error creating upload session: {e}", 'error')
+            conn.rollback()
+            os.remove(file_path)
+            return redirect(url_for('upload_page'))
+        finally:
+            conn.close()
         
-        # Process data
+        # Process the data in the uploaded CSV file
         success, result_message = process_csv_data(file_path, session_id)
         
         if success:
@@ -523,27 +554,27 @@ def upload_csv():
         else:
             flash(f'Error processing file: {result_message}', 'error')
         
-        os.remove(file_path)  # Clean up uploaded file
+        os.remove(file_path)  # Clean up the temporary uploaded file
         return redirect(url_for('data_management'))
     
-    flash('Please upload a valid CSV file', 'error')
+    flash('Please upload a valid CSV file (.csv extension required).', 'error')
     return redirect(url_for('upload_page'))
 
 @app.route('/data_management')
 def data_management():
-    """Data management page"""
+    """Data management page: Displays available seasons and player counts."""
     conn = sqlite3.connect('nba_mvp.db')
     cursor = conn.cursor()
     
-    # Get available seasons
+    # Get distinct seasons from players table
     cursor.execute('SELECT DISTINCT season FROM players ORDER BY season DESC')
     seasons = [row[0] for row in cursor.fetchall()]
     
-    # Get data summary by season
+    # Get data summary grouped by season (player count and teams)
     cursor.execute('''
-        SELECT season, COUNT(*) as player_count, 
-               GROUP_CONCAT(DISTINCT team) as teams
-        FROM players 
+        SELECT season, COUNT(DISTINCT p.id) as player_count, 
+               GROUP_CONCAT(DISTINCT team) as teams -- Concatenate unique team names
+        FROM players p
         GROUP BY season 
         ORDER BY season DESC
     ''')
@@ -553,7 +584,7 @@ def data_management():
         season_data.append({
             'season': row[0],
             'player_count': row[1],
-            'teams': row[2].split(',') if row[2] else []
+            'teams': row[2].split(',') if row[2] else [] # Split concatenated teams into a list
         })
     
     conn.close()
@@ -564,14 +595,21 @@ def data_management():
 
 @app.route('/calculate_mvp/<int:season>')
 def calculate_mvp(season):
-    """Calculate MVP rankings for a specific season"""
+    """
+    Calculates MVP rankings for a specific season using the COPRAS method
+    and stores the results in the database.
+    """
     conn = sqlite3.connect('nba_mvp.db')
     
-    # Get player data for the season
-    query = '''
-        SELECT p.id, p.name, p.team, s.games, s.minutes, s.fg_percent,
-               s.points, s.rebounds, s.assists, s.steals, s.blocks,
-               s.turnovers, s.personal_fouls, s.team_performance
+    # Fetch player data and map DB column names to 'C' criteria for MVPCalculator.
+    # 'p.name AS A' maps player name to 'A' as expected by the calculator.
+    # 's.games AS C1' etc., map statistics to C1-C11.
+    query = f'''
+        SELECT p.id, p.name AS A, p.team,
+               s.games AS C1, s.minutes AS C2, s.fg_percent AS C3,
+               s.points AS C4, s.rebounds AS C5, s.assists AS C6,
+               s.steals AS C7, s.blocks AS C8, s.team_performance AS C9,
+               s.turnovers AS C10, s.personal_fouls AS C11
         FROM players p
         JOIN statistics s ON p.id = s.player_id
         WHERE p.season = ?
@@ -580,44 +618,52 @@ def calculate_mvp(season):
     df = pd.read_sql_query(query, conn, params=(season,))
     
     if df.empty:
-        flash(f'No data found for season {season}', 'error')
+        flash(f'No data found for season {season} to calculate MVP rankings.', 'error')
+        conn.close()
         return redirect(url_for('data_management'))
     
-    # Calculate MVP scores
+    # Instantiate MVPCalculator and perform the COPRAS calculation
     calculator = MVPCalculator()
     results_df = calculator.calculate_mvp_scores(df)
     
-    # Save results to database
+    # Save calculated results to the 'mvp_scores' table
     cursor = conn.cursor()
     
-    # Clear previous calculations for this season
-    cursor.execute('DELETE FROM mvp_scores WHERE season = ?', (season,))
+    try:
+        # Clear any previous MVP calculations for this season to ensure fresh data
+        cursor.execute('DELETE FROM mvp_scores WHERE season = ?', (season,))
+        
+        # Insert new calculations for each player
+        for _, row in results_df.iterrows():
+            cursor.execute('''
+                INSERT INTO mvp_scores 
+                (player_id, season, normalized_score, final_score, rank_position)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                int(row['id']),        # Player ID from the original data
+                season,                # Season being calculated
+                0.0,                   # 'normalized_score' is a placeholder, as Qi is in final_score
+                float(row['final_score']), # The COPRAS Qi value
+                int(row['rank_position']) # The calculated rank
+            ))
+        
+        conn.commit()
+        flash(f'MVP rankings calculated successfully for season {season} using COPRAS method!', 'success')
+        
+    except sqlite3.Error as e:
+        conn.rollback() # Rollback on error
+        flash(f'Database error during MVP calculation: {e}', 'error')
+    finally:
+        conn.close() # Always close the connection
     
-    # Insert new calculations
-    for _, row in results_df.iterrows():
-        cursor.execute('''
-            INSERT INTO mvp_scores 
-            (player_id, season, normalized_score, final_score, rank_position)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            int(row['id']),
-            season,
-            0.0,  # normalized_score placeholder
-            float(row['final_score']),
-            int(row['rank_position'])
-        ))
-    
-    conn.commit()
-    conn.close()
-    
-    flash(f'MVP rankings calculated successfully for season {season}', 'success')
     return redirect(url_for('mvp_rankings', season=season))
 
 @app.route('/mvp_rankings/<int:season>')
 def mvp_rankings(season):
-    """Display MVP rankings for a season"""
+    """Displays the top 10 MVP rankings for a given season."""
     conn = sqlite3.connect('nba_mvp.db')
     
+    # Fetch player details along with their COPRAS final score (Qi) and rank position
     query = '''
         SELECT p.name, p.team, s.points, s.rebounds, s.assists,
                s.steals, s.blocks, mvp.final_score, mvp.rank_position
@@ -625,31 +671,34 @@ def mvp_rankings(season):
         JOIN statistics s ON p.id = s.player_id
         JOIN mvp_scores mvp ON p.id = mvp.player_id
         WHERE p.season = ? AND mvp.season = ?
-        ORDER BY mvp.rank_position
-        LIMIT 10
+        ORDER BY mvp.rank_position ASC -- Order by rank, ascending
+        LIMIT 10 -- Display top 10 players
     '''
     
     cursor = conn.cursor()
     cursor.execute(query, (season, season))
-    top_players = cursor.fetchall()
+    top_players = cursor.fetchall() # Get all results
     
     conn.close()
     
+    if not top_players:
+        flash(f"No MVP rankings found for season {season}. Please ensure data is uploaded and calculations are run.", 'info')
+
     return render_template('mvp_rankings.html', 
                          season=season, 
                          top_players=top_players)
 
 @app.route('/player_comparison')
 def player_comparison():
-    """Player comparison page"""
+    """Renders the player comparison page."""
     conn = sqlite3.connect('nba_mvp.db')
     cursor = conn.cursor()
     
-    # Get all players for comparison
+    # Fetch all players available for comparison
     cursor.execute('''
         SELECT p.id, p.name, p.team, p.season
         FROM players p
-        ORDER BY p.season DESC, p.name
+        ORDER BY p.season DESC, p.name ASC
     ''')
     
     players = cursor.fetchall()
@@ -659,14 +708,15 @@ def player_comparison():
 
 @app.route('/api/compare_players', methods=['POST'])
 def compare_players():
-    """API endpoint to compare selected players"""
+    """API endpoint to fetch data for selected players for comparison chart/table."""
     player_ids = request.json.get('player_ids', [])
     
     if len(player_ids) < 2:
-        return jsonify({'error': 'Please select at least 2 players'}), 400
+        return jsonify({'error': 'Please select at least 2 players for comparison.'}), 400
     
     conn = sqlite3.connect('nba_mvp.db')
     
+    # Create placeholders for the IN clause in SQL query
     placeholders = ','.join(['?' for _ in player_ids])
     query = f'''
         SELECT p.name, p.team, p.season, s.points, s.rebounds, s.assists,
@@ -679,19 +729,22 @@ def compare_players():
     df = pd.read_sql_query(query, conn, params=player_ids)
     conn.close()
     
-    # Convert to JSON for frontend
+    # Convert DataFrame to a list of dictionaries for JSON response
     comparison_data = df.to_dict('records')
     
     return jsonify({'players': comparison_data})
 
 @app.route('/delete_season/<int:season>', methods=['POST'])
 def delete_season(season):
-    """Delete all data for a specific season"""
+    """Deletes all player, statistics, and MVP score data for a specific season."""
     conn = sqlite3.connect('nba_mvp.db')
     cursor = conn.cursor()
     
     try:
-        # Delete in correct order due to foreign keys
+        # Delete data in the correct order to respect foreign key constraints:
+        # 1. Delete MVP scores
+        # 2. Delete statistics
+        # 3. Delete players
         cursor.execute('DELETE FROM mvp_scores WHERE season = ?', (season,))
         cursor.execute('''
             DELETE FROM statistics 
@@ -701,23 +754,24 @@ def delete_season(season):
         ''', (season,))
         cursor.execute('DELETE FROM players WHERE season = ?', (season,))
         
-        conn.commit()
-        flash(f'Successfully deleted all data for season {season}', 'success')
+        conn.commit() # Commit the changes to the database
+        flash(f'Successfully deleted all data for season {season}.', 'success')
         
-    except Exception as e:
-        conn.rollback()
+    except sqlite3.Error as e:
+        conn.rollback() # Rollback changes if any error occurs
         flash(f'Error deleting season data: {str(e)}', 'error')
     
     finally:
-        conn.close()
+        conn.close() # Ensure connection is closed
     
     return redirect(url_for('data_management'))
 
 @app.route('/export_rankings/<int:season>')
 def export_rankings(season):
-    """Export MVP rankings to PDF"""
+    """Exports the MVP rankings for a specified season to a PDF file."""
     conn = sqlite3.connect('nba_mvp.db')
     
+    # Fetch data required for the PDF report
     query = '''
         SELECT p.name, p.team, s.points, s.rebounds, s.assists,
                mvp.final_score, mvp.rank_position
@@ -725,19 +779,22 @@ def export_rankings(season):
         JOIN statistics s ON p.id = s.player_id
         JOIN mvp_scores mvp ON p.id = mvp.player_id
         WHERE p.season = ? AND mvp.season = ?
-        ORDER BY mvp.rank_position
+        ORDER BY mvp.rank_position ASC
     '''
     
     df = pd.read_sql_query(query, conn, params=(season, season))
     conn.close()
     
-    # Create PDF
+    # Initialize FPDF object and add a page
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 10, f'NBA MVP Rankings - Season {season}', 0, 1, 'C')
-    pdf.ln(10)
     
+    # Set title and font for the PDF
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, f'NBA MVP Rankings - Season {season} (COPRAS Method)', 0, 1, 'C')
+    pdf.ln(10) # Add a line break
+    
+    # Set font for table headers and add headers
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(10, 10, 'Rank', 1)
     pdf.cell(40, 10, 'Player', 1)
@@ -745,33 +802,36 @@ def export_rankings(season):
     pdf.cell(20, 10, 'Points', 1)
     pdf.cell(20, 10, 'Rebounds', 1)
     pdf.cell(20, 10, 'Assists', 1)
-    pdf.cell(30, 10, 'MVP Score', 1)
-    pdf.ln()
+    pdf.cell(30, 10, 'MVP Score (Qi)', 1) # Label for COPRAS Qi score
+    pdf.ln() # Move to the next line after headers
     
+    # Set font for table data and populate with player rankings
     pdf.set_font('Arial', '', 10)
     for _, row in df.iterrows():
         pdf.cell(10, 8, str(int(row['rank_position'])), 1)
-        pdf.cell(40, 8, str(row['name'])[:15], 1)
+        pdf.cell(40, 8, str(row['name'])[:15], 1) # Truncate player name if too long
         pdf.cell(30, 8, str(row['team']), 1)
-        pdf.cell(20, 8, str(row['points']), 1)
-        pdf.cell(20, 8, str(row['rebounds']), 1)
-        pdf.cell(20, 8, str(row['assists']), 1)
-        pdf.cell(30, 8, f"{row['final_score']:.4f}", 1)
-        pdf.ln()
+        pdf.cell(20, 8, f"{row['points']:.1f}", 1) # Format points
+        pdf.cell(20, 8, f"{row['rebounds']:.1f}", 1) # Format rebounds
+        pdf.cell(20, 8, f"{row['assists']:.1f}", 1) # Format assists
+        pdf.cell(30, 8, f"{row['final_score']:.4f}", 1) # Format Qi score
+        pdf.ln() # Move to the next line for the next row
     
-    # Save to BytesIO
+    # Save the PDF to an in-memory BytesIO object
     pdf_output = BytesIO()
-    pdf_content = pdf.output(dest='S').encode('latin-1')
+    # Output PDF as a string and encode it to latin-1 (common for PDF)
+    pdf_content = pdf.output(dest='S').encode('latin-1') 
     pdf_output.write(pdf_content)
-    pdf_output.seek(0)
+    pdf_output.seek(0) # Rewind to the beginning of the BytesIO object
     
+    # Send the PDF file as an attachment
     return send_file(
         pdf_output,
         mimetype='application/pdf',
         as_attachment=True,
-        download_name=f'NBA_MVP_Rankings_{season}.pdf'
+        download_name=f'NBA_MVP_Rankings_{season}_COPRAS.pdf' # Suggested filename
     )
 
 if __name__ == '__main__':
-    init_database()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    init_database() # Initialize database tables on app start
+    app.run(debug=True, host='0.0.0.0', port=5000) # Run Flask application in debug mode
