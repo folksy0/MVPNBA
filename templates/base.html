@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NBA MVP Decision Support System{% endblock %}</title>
     
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' cdn.jsdelivr.net;">
+    
     <link rel="shortcut icon" href="{{ url_for('static', filename='assets/compiled/svg/favicon.svg') }}" type="image/x-icon">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/compiled/css/app.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/compiled/css/app-dark.css') }}">
@@ -58,13 +64,51 @@
                             <a href="#" class="sidebar-hide d-xl-none d-block"><i class="bi bi-x bi-middle"></i></a>
                         </div>
                     </div>
-                </div>
-                <div class="sidebar-menu">
+                </div>                <div class="sidebar-menu">
                     <ul class="menu">
+                        <!-- User Info Section -->
+                        {% if session.get('user_id') %}
+                        <li class="sidebar-title">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar avatar-sm me-2">
+                                    <div class="avatar-content bg-primary text-white">
+                                        {{ session.get('username', 'U')[0].upper() }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-primary fw-bold">{{ session.get('username', 'User') }}</span>
+                                    <br><small class="text-muted">{{ session.get('user_role', 'user').title() }}</small>
+                                </div>
+                            </div>
+                        </li>
+                        {% endif %}
+                        
+                        {% if session.get('user_role') == 'admin' %}
+                        <!-- Admin Only Navigation -->
+                        <li class="sidebar-title">Administration</li>
+                        
+                        <li class="sidebar-item {% if 'admin' in request.endpoint %}active{% endif %}">
+                            <a href="{{ url_for('admin_dashboard') }}" class='sidebar-link'>
+                                <i class="bi bi-shield-lock-fill"></i>
+                                <span>Admin Dashboard</span>
+                            </a>
+                        </li>
+                        
+                        <li class="sidebar-title">Data Management</li>
+                        
+                        <li class="sidebar-item {% if request.endpoint == 'upload_page' %}active{% endif %}">
+                            <a href="{{ url_for('upload_page') }}" class='sidebar-link'>
+                                <i class="bi bi-cloud-upload-fill"></i>
+                                <span>Upload Data</span>
+                            </a>
+                        </li>
+                        
+                        {% else %}
+                        <!-- Regular User Navigation -->
                         <li class="sidebar-title">NBA MVP System</li>
                         
-                        <li class="sidebar-item {% if request.endpoint == 'index' %}active{% endif %}">
-                            <a href="{{ url_for('index') }}" class='sidebar-link'>
+                        <li class="sidebar-item {% if request.endpoint in ['dashboard', 'index'] %}active{% endif %}">
+                            <a href="{{ url_for('dashboard') }}" class='sidebar-link'>
                                 <i class="bi bi-grid-fill"></i>
                                 <span>Dashboard</span>
                             </a>
@@ -114,6 +158,26 @@
                                 <span>Reports</span>
                             </a>
                         </li>
+                        
+                        <li class="sidebar-item {% if request.endpoint == 'upload_history' %}active{% endif %}">
+                            <a href="{{ url_for('upload_history') }}" class='sidebar-link'>
+                                <i class="bi bi-clock-history"></i>
+                                <span>Upload History</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Logout Section -->
+                        {% if session.get('user_id') %}
+                        <li class="sidebar-title">Account</li>
+                        <li class="sidebar-item">
+                            <a href="{{ url_for('logout') }}" class='sidebar-link text-danger' 
+                               onclick="return confirm('Are you sure you want to logout?')">
+                                <i class="bi bi-box-arrow-right"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>
@@ -147,28 +211,27 @@
     
     {% block extra_js %}{% endblock %}
     
-    <script>
-        // Season selection for MVP rankings
+    <script>        // Season selection for MVP rankings
         function selectSeason(endpoint) {
-            const availableSeasons = {{ seasons | tojson if seasons else '[]' | safe }};
+            var availableSeasons = [];
+            {% if seasons %}
+                availableSeasons = {{ seasons | tojson | safe }};
+            {% endif %}
+            
             if (availableSeasons.length === 0) {
                 alert('No data available. Please upload CSV data first.');
                 return;
             }
             
-            let seasonOptions = availableSeasons.map(season => `<option value="${season}">${season}</option>`).join('');
-            let selectHtml = `
-                <select class="form-select" id="seasonSelect">
-                    <option value="">Select Season</option>
-                    ${seasonOptions}
-                </select>
-            `;
+            var seasonOptions = availableSeasons.map(function(season) {
+                return '<option value="' + season + '">' + season + '</option>';
+            }).join('');
             
             if (confirm('Select a season for MVP rankings:')) {
                 // Use a simple prompt for now, can be enhanced with modal
-                let season = prompt('Enter season year:');
+                var season = prompt('Enter season year:');
                 if (season && availableSeasons.includes(parseInt(season))) {
-                    window.location.href = `/${endpoint}/${season}`;
+                    window.location.href = '/' + endpoint + '/' + season;
                 }
             }
         }
