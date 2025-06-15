@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Upload History - NBA MVP System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>Upload History</h3>
+                <p class="text-subtitle text-muted">Your file upload history and management</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Upload History</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-content">
+    <section class="section">
+        <!-- Storage Summary -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Storage Summary</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="stats-icon purple">
+                                    <div class="icon">
+                                        <i class="iconly-boldDocument"></i>
+                                    </div>
+                                    <div class="name">Total Files</div>
+                                    <div class="value">{{ uploads|length }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stats-icon blue">
+                                    <div class="icon">
+                                        <i class="iconly-boldChart"></i>
+                                    </div>
+                                    <div class="name">Storage Used</div>
+                                    <div class="value">{{ total_size_mb }} MB</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex justify-content-end">
+                                    <a href="{{ url_for('upload_page') }}" class="btn btn-primary">
+                                        <i class="bi bi-cloud-upload"></i> Upload New File
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload History Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Upload History</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if uploads %}
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="upload-table">
+                                <thead>
+                                    <tr>
+                                        <th>Upload #</th>
+                                        <th>Filename</th>
+                                        <th>Size</th>
+                                        <th>Status</th>
+                                        <th>Upload Date</th>
+                                        <th>Processed</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for upload in uploads %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary">#{{ upload.upload_order }}</span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ upload.original_filename }}</strong>
+                                            <br><small class="text-muted">{{ upload.stored_filename }}</small>
+                                        </td>
+                                        <td>
+                                            {{ "%.2f"|format((upload.file_size / (1024 * 1024)) if upload.file_size else 0) }} MB
+                                        </td>
+                                        <td>
+                                            {% if upload.status == 'processed' %}
+                                                <span class="badge bg-success">Processed</span>
+                                            {% elif upload.status == 'uploaded' %}
+                                                <span class="badge bg-warning">Uploaded</span>
+                                            {% elif upload.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% elif upload.status == 'error' %}
+                                                <span class="badge bg-danger">Error</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ upload.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if upload.created_at %}
+                                                {{ upload.created_at[:19] }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if upload.processed_at %}
+                                                {{ upload.processed_at[:19] }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ url_for('download_upload', upload_id=upload.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary"
+                                                   title="Download File">
+                                                    <i class="bi bi-download"></i>
+                                                </a>                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-danger delete-btn"
+                                                        data-upload-id="{{ upload.id }}"
+                                                        data-filename="{{ upload.original_filename }}"
+                                                        title="Delete File">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #ddd;"></i>
+                            <h5 class="mt-3">No files uploaded yet</h5>
+                            <p class="text-muted">Upload your first CSV file to get started with NBA MVP analysis.</p>
+                            <a href="{{ url_for('upload_page') }}" class="btn btn-primary">
+                                <i class="bi bi-cloud-upload"></i> Upload File
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm File Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the file <strong id="deleteFileName"></strong>?</p>
+                <p class="text-danger"><i class="bi bi-exclamation-triangle"></i> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete File
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize DataTable if available
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle delete button clicks
+    document.querySelectorAll('.delete-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var uploadId = this.getAttribute('data-upload-id');
+            var filename = this.getAttribute('data-filename');
+            confirmDelete(uploadId, filename);
+        });
+    });
+    
+    // Initialize DataTable if available
+    if (typeof $ !== 'undefined' && $.fn.DataTable && document.getElementById('upload-table')) {
+        $('#upload-table').DataTable({
+            "pageLength": 25,
+            "order": [[ 0, "desc" ]], // Sort by upload order descending
+            "columnDefs": [
+                { "orderable": false, "targets": [6] } // Disable sorting for Actions column
+            ]
+        });
+    }
+});
+
+function confirmDelete(uploadId, filename) {
+    document.getElementById('deleteFileName').textContent = filename;
+    document.getElementById('deleteForm').action = '/delete_upload/' + uploadId;
+    
+    var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
+{% endblock %}

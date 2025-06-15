@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - NBA MVP Decision Support System{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div class="page-title">
+        <div class="row">
+            <div class="col-12 col-md-6 order-md-1 order-last">
+                <h3>Admin Dashboard</h3>
+                <p class="text-subtitle text-muted">System administration and user management</p>
+            </div>
+            <div class="col-12 col-md-6 order-md-2 order-first">
+                <nav aria-label="breadcrumb" class="breadcrumb-header float-start float-lg-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Admin</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-content">
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-6 col-lg-3 col-md-6">
+            <div class="card">
+                <div class="card-body px-4 py-4-5">
+                    <div class="row">
+                        <div class="col-md-4 col-lg-12 col-xl-12 col-xxl-5 d-flex justify-content-start">
+                            <div class="stats-icon blue mb-2">
+                                <i class="iconly-boldProfile"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-8 col-lg-12 col-xl-12 col-xxl-7">
+                            <h6 class="text-muted font-semibold">Total Users</h6>
+                            <h6 class="font-extrabold mb-0">{{ dashboard_stats.total_users }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-lg-3 col-md-6">
+            <div class="card">
+                <div class="card-body px-4 py-4-5">
+                    <div class="row">
+                        <div class="col-md-4 col-lg-12 col-xl-12 col-xxl-5 d-flex justify-content-start">
+                            <div class="stats-icon green mb-2">
+                                <i class="iconly-boldAdd-User"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-8 col-lg-12 col-xl-12 col-xxl-7">
+                            <h6 class="text-muted font-semibold">Administrators</h6>
+                            <h6 class="font-extrabold mb-0">{{ dashboard_stats.total_admins }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-lg-3 col-md-6">
+            <div class="card">
+                <div class="card-body px-4 py-4-5">
+                    <div class="row">
+                        <div class="col-md-4 col-lg-12 col-xl-12 col-xxl-5 d-flex justify-content-start">
+                            <div class="stats-icon purple mb-2">
+                                <i class="iconly-boldShow"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-8 col-lg-12 col-xl-12 col-xxl-7">
+                            <h6 class="text-muted font-semibold">Regular Users</h6>
+                            <h6 class="font-extrabold mb-0">{{ dashboard_stats.total_regular_users }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-6 col-lg-3 col-md-6">
+            <div class="card">
+                <div class="card-body px-4 py-4-5">
+                    <div class="row">
+                        <div class="col-md-4 col-lg-12 col-xl-12 col-xxl-5 d-flex justify-content-start">
+                            <div class="stats-icon red mb-2">
+                                <i class="iconly-boldBookmark"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-8 col-lg-12 col-xl-12 col-xxl-7">
+                            <h6 class="text-muted font-semibold">NBA Seasons</h6>
+                            <h6 class="font-extrabold mb-0">{{ dashboard_stats.total_seasons }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- User Management -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">User Management</h4>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                        <i class="bi bi-plus-circle"></i> Create New User
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Last Login</th>
+                                    <th>Created By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in all_users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar avatar-md me-3">
+                                                <div class="avatar-content bg-primary text-white">
+                                                    {{ user[1][0].upper() }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ user[1] }}</h6>
+                                                <small class="text-muted">ID: {{ user[0] }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ user[2] }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if user[3] == 'admin' else 'primary' }}">
+                                            {{ user[3].title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if user[4] else 'secondary' }}">
+                                            {{ 'Active' if user[4] else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ user[5][:16] if user[5] else '-' }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ user[7][:16] if user[7] else 'Never' }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ user[6] if user[6] else 'System' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if user[0] != session.user_id %}
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <form method="POST" action="{{ url_for('toggle_user_status', user_id=user[0]) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-outline-{{ 'danger' if user[4] else 'success' }} btn-sm" 
+                                                        onclick="return confirm('Are you sure you want to {{ 'deactivate' if user[4] else 'activate' }} this user?')">
+                                                    <i class="bi bi-{{ 'x-circle' if user[4] else 'check-circle' }}"></i>
+                                                    {{ 'Deactivate' if user[4] else 'Activate' }}
+                                                </button>
+                                            </form>
+                                        </div>
+                                        {% else %}
+                                        <small class="text-muted">Current User</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Recent Activity -->
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Recent Activity</h4>
+                </div>
+                <div class="card-body">
+                    <div class="activity-list">
+                        {% for activity in recent_activity %}
+                        <div class="activity-item d-flex align-items-start mb-3">
+                            <div class="activity-icon me-3">
+                                <div class="avatar avatar-sm bg-light-primary">
+                                    <i class="bi bi-{{ 'person-check' if 'login' in activity[2] else 'gear' }}"></i>
+                                </div>
+                            </div>
+                            <div class="activity-content flex-grow-1">
+                                <h6 class="activity-title mb-1">{{ activity[1] }}</h6>
+                                <p class="activity-description mb-1">{{ activity[3] or activity[2].replace('_', ' ').title() }}</p>
+                                <small class="text-muted">
+                                    {{ activity[0][:16] }}
+                                    {% if activity[4] %}
+                                    from {{ activity[4] }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if not recent_activity %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock-history display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No recent activity</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Sessions -->
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Active Sessions</h4>
+                </div>
+                <div class="card-body">
+                    <div class="session-list">
+                        {% for session_info in active_sessions %}
+                        <div class="session-item d-flex align-items-center justify-content-between mb-3">
+                            <div class="session-info d-flex align-items-center">
+                                <div class="avatar avatar-sm me-3">
+                                    <div class="avatar-content bg-success text-white">
+                                        <i class="bi bi-person"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">{{ session_info[2] }}</h6>
+                                    <small class="text-muted">{{ session_info[3] if session_info[3] else 'Unknown IP' }}</small>
+                                </div>
+                            </div>
+                            <div class="session-meta text-end">
+                                <small class="text-muted d-block">Login: {{ session_info[0][:16] }}</small>
+                                <small class="text-muted">Last: {{ session_info[1][:16] }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if not active_sessions %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-wifi-off display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No active sessions</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createUserModalLabel">Create New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_user') }}" novalidate>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               required 
+                               maxlength="50"
+                               pattern="[a-zA-Z0-9_\-]+"
+                               title="Only letters, numbers, underscore, and hyphen allowed">
+                        <div class="form-text">3-50 characters, letters, numbers, underscore, and hyphen only</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" 
+                               class="form-control" 
+                               id="email" 
+                               name="email" 
+                               required 
+                               maxlength="254"
+                               autocomplete="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               required 
+                               minlength="8"
+                               maxlength="128"
+                               autocomplete="new-password">
+                        <div class="form-text">Minimum 8 characters, must contain letters and numbers</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stats-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.stats-icon.blue {
+    background-color: #007bff;
+}
+
+.stats-icon.green {
+    background-color: #28a745;
+}
+
+.stats-icon.purple {
+    background-color: #6f42c1;
+}
+
+.stats-icon.red {
+    background-color: #dc3545;
+}
+
+.activity-item {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.activity-item:hover {
+    background-color: #f8f9fa;
+}
+
+.session-item {
+    padding: 0.75rem;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.avatar-content {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation for create user modal
+    const createUserForm = document.querySelector('#createUserModal form');
+    if (createUserForm) {
+        createUserForm.addEventListener('submit', function(e) {
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (username.length < 3) {
+                e.preventDefault();
+                alert('Username must be at least 3 characters long');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters long');
+                return false;
+            }
+            
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                e.preventDefault();
+                alert('Please enter a valid email address');
+                return false;
+            }
+        });
+    }
+    
+    // Auto-refresh activity every 30 seconds
+    setInterval(function() {
+        // In a real application, you might want to use AJAX to refresh activity
+        // For now, we'll just show a subtle indication that data might be outdated
+        const activityHeaders = document.querySelectorAll('.card-title');
+        activityHeaders.forEach(header => {
+            if (header.textContent.includes('Recent Activity') || header.textContent.includes('Active Sessions')) {
+                header.style.opacity = '0.8';
+                setTimeout(() => {
+                    header.style.opacity = '1';
+                }, 1000);
+            }
+        });
+    }, 30000);
+    
+    // Add hover effects to user rows
+    const userRows = document.querySelectorAll('#usersTable tbody tr');
+    userRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8f9fa';
+        });
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+});
+</script>
+{% endblock %}

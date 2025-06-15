@@ -177,6 +177,113 @@
             </div>
         </div>
     </div>
+
+    <!-- File Upload Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="card-title">File Upload Statistics</h4>
+                    <div>
+                        <a href="{{ url_for('upload_history') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-clock-history"></i> View All Uploads
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="stats-icon purple">
+                                <div class="icon">
+                                    <i class="iconly-boldDocument"></i>
+                                </div>
+                                <div class="name">Total Uploads</div>
+                                <div class="value">{{ upload_stats.total_uploads }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-icon blue">
+                                <div class="icon">
+                                    <i class="iconly-boldProfile"></i>
+                                </div>
+                                <div class="name">Active Users</div>
+                                <div class="value">{{ upload_stats.active_users }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-icon green">
+                                <div class="icon">
+                                    <i class="iconly-boldChart"></i>
+                                </div>
+                                <div class="name">Total Storage</div>
+                                <div class="value">{{ upload_stats.total_storage_mb }} MB</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-icon red">
+                                <div class="icon">
+                                    <i class="iconly-boldBookmark"></i>
+                                </div>
+                                <div class="name">Avg File Size</div>
+                                <div class="value">{{ upload_stats.avg_file_size_mb }} MB</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Uploads -->
+    {% if recent_uploads %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Recent File Uploads</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Filename</th>
+                                    <th>User</th>
+                                    <th>Size</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for upload in recent_uploads %}
+                                <tr>
+                                    <td><span class="badge bg-secondary">#{{ upload.upload_order }}</span></td>
+                                    <td>{{ upload.filename }}</td>
+                                    <td>{{ upload.username }}</td>
+                                    <td>{{ upload.file_size_mb }} MB</td>
+                                    <td>
+                                        {% if upload.status == 'processed' %}
+                                            <span class="badge bg-success">Processed</span>
+                                        {% elif upload.status == 'uploaded' %}
+                                            <span class="badge bg-warning">Uploaded</span>
+                                        {% elif upload.status == 'failed' %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ upload.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ upload.created_at[:16] if upload.created_at else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     {% else %}
     <!-- No Data State -->
@@ -283,6 +390,36 @@
     padding: 0.25rem 0.5rem;
 }
 
+.stats-icon {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-radius: 8px;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.stats-icon .icon {
+    font-size: 24px;
+    margin-right: 10px;
+}
+
+.stats-icon.red {
+    background-color: #e57373;
+}
+
+.stats-icon.blue {
+    background-color: #64b5f6;
+}
+
+.stats-icon.green {
+    background-color: #81c784;
+}
+
+.stats-icon.purple {
+    background-color: #ba68c8;
+}
+
 @media (max-width: 768px) {
     .btn-group {
         display: flex;
@@ -346,7 +483,7 @@ function filterByPlayerCount(minPlayers) {
 
 function calculateAllMVP() {
     if (confirm('This will calculate MVP rankings for all seasons. This may take a while. Continue?')) {
-        const seasonsList = {{ (season_data | map(attribute='season') | list | tojson) if season_data else '[]' }};
+        const seasonsList = {{ (season_data | map(attribute='season') | list | tojson) if season_data else '[]' | safe }};
         let completed = 0;
         
         function calculateNext() {
