@@ -178,65 +178,9 @@
         </div>
     </div>
 
-    <!-- File Upload Statistics -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title">File Upload Statistics</h4>
-                    <div>
-                        <a href="{{ url_for('upload_history') }}" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-clock-history"></i> View All Uploads
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="stats-icon purple">
-                                <div class="icon">
-                                    <i class="iconly-boldDocument"></i>
-                                </div>
-                                <div class="name">Total Uploads</div>
-                                <div class="value">{{ upload_stats.total_uploads }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stats-icon blue">
-                                <div class="icon">
-                                    <i class="iconly-boldProfile"></i>
-                                </div>
-                                <div class="name">Active Users</div>
-                                <div class="value">{{ upload_stats.active_users }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stats-icon green">
-                                <div class="icon">
-                                    <i class="iconly-boldChart"></i>
-                                </div>
-                                <div class="name">Total Storage</div>
-                                <div class="value">{{ upload_stats.total_storage_mb }} MB</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stats-icon red">
-                                <div class="icon">
-                                    <i class="iconly-boldBookmark"></i>
-                                </div>
-                                <div class="name">Avg File Size</div>
-                                <div class="value">{{ upload_stats.avg_file_size_mb }} MB</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Recent Uploads -->
     {% if recent_uploads %}
-    <div class="row mb-4">
+    <div class="row mb-4">g
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
