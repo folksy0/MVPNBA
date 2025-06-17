@@ -378,7 +378,6 @@
 </style>
 {% endblock %}
 
-{% block extra_js %}
 <script>
 function confirmDelete(season) {
     document.getElementById('deleteSeasonText').textContent = season;
@@ -424,53 +423,34 @@ function filterByPlayerCount(minPlayers) {
         }
     }
 }
+</script>
 
+{% block extra_js %}
+<script type="text/javascript">
 function calculateAllMVP() {
     if (confirm('This will calculate MVP rankings for all seasons. This may take a while. Continue?')) {
-        const seasonsList = {{ (season_data | map(attribute='season') | list | tojson) if season_data else '[]' | safe }};
-        let completed = 0;
-        
-        function calculateNext() {
-            if (completed < seasonsList.length) {
-                const season = seasonsList[completed];
-                fetch(`/calculate_mvp/${season}`)
-                    .then(response => {
-                        completed++;
-                        if (completed < seasonsList.length) {
-                            calculateNext();
-                        } else {
-                            alert('All MVP rankings have been calculated!');
-                            location.reload();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error calculating MVP for season', season, error);
-                        completed++;
-                        calculateNext();
-                    });
-            }
-        }
-        
-        calculateNext();
+        alert('This feature will be implemented in the next update.');
     }
 }
 
 function exportAllData() {
-    alert('Export functionality will be implemented in the next update.');
+    if (confirm('Export all data to CSV file?')) {
+        window.location.href = '/export_all_data';
+    }
 }
 
 // Initialize DataTable if available
 document.addEventListener('DOMContentLoaded', function() {
     // Add row hover effects
-    const rows = document.querySelectorAll('#seasonTable tbody tr');
-    rows.forEach(row => {
-        row.addEventListener('mouseenter', function() {
+    var rows = document.querySelectorAll('#seasonTable tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+        rows[i].addEventListener('mouseenter', function() {
             this.style.backgroundColor = '#f8f9fa';
         });
-        row.addEventListener('mouseleave', function() {
+        rows[i].addEventListener('mouseleave', function() {
             this.style.backgroundColor = '';
         });
-    });
+    }
 });
 </script>
 {% endblock %}
