@@ -18,11 +18,31 @@
                         <li class="breadcrumb-item active" aria-current="page">MVP Rankings {{ season }}</li>
                     </ol>
                 </nav>
+            </div>        </div>
+    </div>
+</div>
+<div class="page-content">    <!-- Basketball Terms Explanation -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <h5 class="alert-heading"><i class="bi bi-info-circle-fill me-2"></i>Basketball Terms Guide</h5>
+                <div class="terms-grid">
+                    <div>
+                        <p class="mb-1"><strong>Points Per Game:</strong> Rata-rata poin yang dicetak pemain per pertandingan</p>
+                        <p class="mb-1"><strong>Rebounds Per Game:</strong> Rata-rata rebound (mengambil bola pantul) per pertandingan</p>
+                        <p class="mb-1"><strong>Assists Per Game:</strong> Rata-rata assist (umpan untuk poin) per pertandingan</p>
+                    </div>
+                    <div>
+                        <p class="mb-1"><strong>Steals Per Game:</strong> Rata-rata steal (mencuri bola) per pertandingan</p>
+                        <p class="mb-1"><strong>Blocks Per Game:</strong> Rata-rata block (blokir tembakan) per pertandingan</p>
+                        <p class="mb-1"><strong>MVP Score:</strong> Skor keseluruhan berdasarkan kriteria MVP</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close" style="position: absolute; top: 15px; right: 15px;"></button>
             </div>
         </div>
     </div>
-</div>
-<div class="page-content">
+    
     {% if top_players %}
     <!-- Top 3 MVP Candidates -->
     <div class="row mb-4">
@@ -58,20 +78,19 @@
                             <h2 class="score-value">{{ "%.4f"|format(player[7]) }}</h2>
                             <p class="score-label">MVP Score</p>
                         </div>
-                        
-                        <div class="player-stats mt-3">
+                          <div class="player-stats mt-3">
                             <div class="row text-center">
                                 <div class="col-4">
                                     <strong>{{ player[2] }}</strong>
-                                    <small class="d-block text-muted">PPG</small>
+                                    <small class="d-block text-muted">Points Per Game</small>
                                 </div>
                                 <div class="col-4">
                                     <strong>{{ player[3] }}</strong>
-                                    <small class="d-block text-muted">RPG</small>
+                                    <small class="d-block text-muted">Rebounds Per Game</small>
                                 </div>
                                 <div class="col-4">
                                     <strong>{{ player[4] }}</strong>
-                                    <small class="d-block text-muted">APG</small>
+                                    <small class="d-block text-muted">Assists Per Game</small>
                                 </div>
                             </div>
                         </div>
@@ -99,17 +118,16 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover" id="mvpTable">
-                            <thead>
+                        <table class="table table-hover" id="mvpTable">                            <thead>
                                 <tr>
                                     <th>Rank</th>
                                     <th>Player</th>
                                     <th>Team</th>
-                                    <th>Points</th>
-                                    <th>Rebounds</th>
-                                    <th>Assists</th>
-                                    <th>Steals</th>
-                                    <th>Blocks</th>
+                                    <th>Points Per Game</th>
+                                    <th>Rebounds Per Game</th>
+                                    <th>Assists Per Game</th>
+                                    <th>Steals Per Game</th>
+                                    <th>Blocks Per Game</th>
                                     <th>MVP Score</th>
                                 </tr>
                             </thead>
@@ -262,18 +280,17 @@
                         </div>
                         
                         <hr>
-                        
-                        <div class="row">
+                          <div class="row">
                             <div class="col-6">
                                 <div class="stat-item text-center">
                                     <h3 class="text-warning">{{ top_players[0][2] if top_players else '0' }}</h3>
-                                    <p class="text-muted mb-0">Top PPG</p>
+                                    <p class="text-muted mb-0">Top Points Per Game</p>
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="stat-item text-center">
                                     <h3 class="text-info">{{ top_players[0][3] if top_players else '0' }}</h3>
-                                    <p class="text-muted mb-0">Top RPG</p>
+                                    <p class="text-muted mb-0">Top Rebounds Per Game</p>
                                 </div>
                             </div>
                         </div>
