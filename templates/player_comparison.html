@@ -155,14 +155,44 @@
 
 <!-- Comparison Chart Modal -->
 <div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="chartModalLabel">Performance Chart</h5>
+                <h5 class="modal-title" id="chartModalLabel">Player Performance Comparison</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <canvas id="comparisonChart" width="400" height="200"></canvas>
+                <!-- Chart Type Selector -->
+                <div class="mb-3">
+                    <div class="btn-group" role="group" aria-label="Chart type selector">
+                        <button type="button" class="btn btn-outline-primary active" onclick="showBarChart()">
+                            <i class="bi bi-bar-chart-fill"></i> Bar Chart
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="showLineChart()">
+                            <i class="bi bi-graph-up"></i> Line Chart
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="showPieChart()">
+                            <i class="bi bi-pie-chart-fill"></i> Pie Chart (Total Points)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chart Container -->
+                <div style="position: relative; height: 400px;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+
+                <!-- Chart Legend/Explanation -->
+                <div class="mt-3">
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>Cara Membaca Chart:</h6>
+                        <div id="chartExplanation">
+                            <p class="mb-1"><strong>Bar Chart:</strong> Tinggi batang menunjukkan nilai statistik. Semakin tinggi = semakin baik.</p>
+                            <p class="mb-1"><strong>Warna berbeda:</strong> Setiap pemain memiliki warna berbeda untuk memudahkan perbandingan.</p>
+                            <p class="mb-0"><strong>Hover:</strong> Arahkan mouse ke batang untuk melihat nilai exact.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -217,6 +247,76 @@
 .comparison-table th {
     background-color: #f8f9fa;
     font-weight: 600;
+}
+
+.stat-winner {
+    background-color: #d1ecf1 !important;
+    font-weight: bold;
+    color: #0c5460;
+}
+
+.stat-value {
+    font-size: 1.1em;
+}
+
+/* Chart Modal Styling */
+.modal-xl {
+    max-width: 1200px;
+}
+
+#chartModal .btn-group .btn {
+    transition: all 0.3s ease;
+}
+
+#chartModal .btn-group .btn.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+#chartModal .btn-group .btn:not(.active) {
+    background-color: white;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+#chartModal .btn-group .btn:not(.active):hover {
+    background-color: #e7f1ff;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.alert-info {
+    background-color: #e7f3ff;
+    border-color: #b8daff;
+    color: #004085;
+}
+
+.alert-info h6 {
+    color: #004085;
+    margin-bottom: 10px;
+}
+
+/* Chart container styling */
+#comparisonChart {
+    max-height: 400px;
+}
+
+/* Responsive design for chart buttons */
+@media (max-width: 768px) {
+    #chartModal .btn-group {
+        width: 100%;
+    }
+    
+    #chartModal .btn-group .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .modal-xl {
+        max-width: 95%;
+        margin: 1rem auto;
+    }
 }
 
 .comparison-player-header {
@@ -507,50 +607,281 @@ function showComparisonChart() {
     const modal = new bootstrap.Modal(document.getElementById('chartModal'));
     modal.show();
     
-    // Prepare chart data
+    // Show bar chart by default
+    showBarChart();
+}
+
+// Global variable to store current chart instance
+let currentChart = null;
+
+// Color palette for players
+const playerColors = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+    '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+];
+
+function showBarChart() {
+    if (!comparisonData) return;
+    
+    // Update button states
+    updateButtonStates('bar');
+    
+    // Update explanation
+    updateChartExplanation('bar');
+    
+    // Destroy existing chart
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
     const ctx = document.getElementById('comparisonChart').getContext('2d');
+    
+    // Prepare datasets for grouped bar chart
+    const stats = ['points', 'rebounds', 'assists', 'steals', 'blocks'];
+    const statLabels = ['Points Per Game', 'Rebounds Per Game', 'Assists Per Game', 'Steals Per Game', 'Blocks Per Game'];
     
     const datasets = comparisonData.map((player, index) => ({
         label: player.name,
-        data: [
-            player.points,
-            player.rebounds,
-            player.assists,
-            player.steals,
-            player.blocks
-        ],
-        backgroundColor: `rgba(${index * 100 + 50}, ${index * 80 + 100}, ${index * 60 + 150}, 0.2)`,
-        borderColor: `rgba(${index * 100 + 50}, ${index * 80 + 100}, ${index * 60 + 150}, 1)`,
-        borderWidth: 2
+        data: stats.map(stat => parseFloat(player[stat]) || 0),
+        backgroundColor: playerColors[index % playerColors.length],
+        borderColor: playerColors[index % playerColors.length],
+        borderWidth: 1
     }));
     
-    new Chart(ctx, {
-        type: 'radar',
+    currentChart = new Chart(ctx, {
+        type: 'bar',
         data: {
-            labels: ['Points', 'Rebounds', 'Assists', 'Steals', 'Blocks'],
+            labels: statLabels,
             datasets: datasets
         },
         options: {
             responsive: true,
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
-                    }
-                }
-            },
+            maintainAspectRatio: false,
             plugins: {
+                title: {
+                    display: true,
+                    text: 'Player Statistics Comparison',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
                 legend: {
                     position: 'top'
                 },
-                title: {
-                    display: true,
-                    text: 'Player Performance Comparison'
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Statistics Value'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Performance Categories'
+                    }
                 }
             }
         }
     });
+}
+
+function showLineChart() {
+    if (!comparisonData) return;
+    
+    // Update button states
+    updateButtonStates('line');
+    
+    // Update explanation
+    updateChartExplanation('line');
+    
+    // Destroy existing chart
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    
+    const stats = ['points', 'rebounds', 'assists', 'steals', 'blocks'];
+    const statLabels = ['Points', 'Rebounds', 'Assists', 'Steals', 'Blocks'];
+    
+    const datasets = comparisonData.map((player, index) => ({
+        label: player.name,
+        data: stats.map(stat => parseFloat(player[stat]) || 0),
+        borderColor: playerColors[index % playerColors.length],
+        backgroundColor: playerColors[index % playerColors.length] + '20',
+        borderWidth: 3,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        fill: false
+    }));
+    
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: statLabels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Player Performance Trends',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label + ' Per Game';
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Average Per Game'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Basketball Statistics'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showPieChart() {
+    if (!comparisonData) return;
+    
+    // Update button states
+    updateButtonStates('pie');
+    
+    // Update explanation
+    updateChartExplanation('pie');
+    
+    // Destroy existing chart
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    
+    // Use total points for pie chart
+    const data = comparisonData.map(player => parseFloat(player.points) || 0);
+    const labels = comparisonData.map(player => player.name);
+    
+    currentChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: playerColors.slice(0, comparisonData.length),
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Points Per Game Distribution',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed.toFixed(1)} pts (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateButtonStates(activeType) {
+    // Remove active class from all buttons
+    document.querySelectorAll('#chartModal .btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to current button
+    const buttons = document.querySelectorAll('#chartModal .btn-group .btn');
+    if (activeType === 'bar') buttons[0].classList.add('active');
+    else if (activeType === 'line') buttons[1].classList.add('active');
+    else if (activeType === 'pie') buttons[2].classList.add('active');
+}
+
+function updateChartExplanation(chartType) {
+    const explanationDiv = document.getElementById('chartExplanation');
+    
+    let explanation = '';
+    switch(chartType) {
+        case 'bar':
+            explanation = `
+                <p class="mb-1"><strong>Bar Chart:</strong> Tinggi batang menunjukkan nilai statistik. Semakin tinggi = semakin baik.</p>
+                <p class="mb-1"><strong>Warna berbeda:</strong> Setiap pemain memiliki warna berbeda untuk memudahkan perbandingan.</p>
+                <p class="mb-0"><strong>Hover:</strong> Arahkan mouse ke batang untuk melihat nilai exact.</p>
+            `;
+            break;
+        case 'line':
+            explanation = `
+                <p class="mb-1"><strong>Line Chart:</strong> Menunjukkan tren performa pemain across different statistics.</p>
+                <p class="mb-1"><strong>Garis naik:</strong> Statistik yang lebih baik. Garis turun: statistik yang lebih rendah.</p>
+                <p class="mb-0"><strong>Titik:</strong> Klik titik untuk melihat nilai exact di kategori tersebut.</p>
+            `;
+            break;
+        case 'pie':
+            explanation = `
+                <p class="mb-1"><strong>Pie Chart:</strong> Menunjukkan proporsi Points Per Game dari setiap pemain.</p>
+                <p class="mb-1"><strong>Potongan besar:</strong> Pemain dengan poin per game lebih tinggi.</p>
+                <p class="mb-0"><strong>Persentase:</strong> Hover untuk melihat kontribusi relatif setiap pemain.</p>
+            `;
+            break;
+    }
+    
+    explanationDiv.innerHTML = explanation;
 }
 
 function exportComparison() {
